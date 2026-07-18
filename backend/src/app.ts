@@ -6,6 +6,9 @@ import prisma from './lib/prisma';
 
 const app = express();
 
+// Trust reverse proxy (Nginx) headers for rate limiter
+app.set('trust proxy', 1);
+
 // Security Middlewares
 app.use(helmet());
 app.use(cors({
