@@ -38,7 +38,9 @@ Thumbs.db
 !frontend/.env.example
 
 # Logs
-logs/
+/logs/
+/backend/logs/
+/backend/dist/
 *.log
 npm-debug.log*
 yarn-debug.log*
