@@ -144,13 +144,13 @@ export async function createHotspotUser(params: {
 
   await withRouterConnection(async (api) => {
     // Check if user exists using raw RouterOS query syntax
-    const existing = await api.write('/ip/hotspot/user/print', [`?name=${params.username}`]);
+    const existing = await api.rosApi.write('/ip/hotspot/user/print', [`?name=${params.username}`]);
     if (existing.length > 0) {
       throw new Error(`Hotspot user '${params.username}' already exists on router.`);
     }
 
     // Add hotspot user using raw commands
-    await api.write('/ip/hotspot/user/add', [
+    await api.rosApi.write('/ip/hotspot/user/add', [
       `=name=${params.username}`,
       `=password=${params.password}`,
       `=profile=${params.profile}`,
@@ -175,12 +175,12 @@ export async function removeHotspotUser(username: string): Promise<void> {
   }
 
   await withRouterConnection(async (api) => {
-    const users = await api.write('/ip/hotspot/user/print', [`?name=${username}`]);
+    const users = await api.rosApi.write('/ip/hotspot/user/print', [`?name=${username}`]);
     if (users.length === 0) return;
     
     const id = users[0].id || users[0]['.id'];
     if (id) {
-      await api.write('/ip/hotspot/user/remove', [`=.id=${id}`]);
+      await api.rosApi.write('/ip/hotspot/user/remove', [`=.id=${id}`]);
     }
   });
 
@@ -197,13 +197,13 @@ export async function disconnectHotspotSession(username: string): Promise<void> 
   }
 
   await withRouterConnection(async (api) => {
-    const activeSessions = await api.write('/ip/hotspot/active/print', [`?user=${username}`]);
+    const activeSessions = await api.rosApi.write('/ip/hotspot/active/print', [`?user=${username}`]);
     if (activeSessions.length === 0) return;
 
     for (const session of activeSessions) {
       const id = session.id || session['.id'];
       if (id) {
-        await api.write('/ip/hotspot/active/remove', [`=.id=${id}`]);
+        await api.rosApi.write('/ip/hotspot/active/remove', [`=.id=${id}`]);
       }
     }
   });
@@ -233,10 +233,10 @@ export async function getRouterHealth() {
     const health = await withRouterConnection(async (api) => {
       // Gather stats from raw RouterOS API commands
       const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
-        api.write('/system/identity/print'),
-        api.write('/system/resource/print'),
-        api.write('/ip/hotspot/active/print'),
-        api.write('/ip/hotspot/print')
+        api.rosApi.write('/system/identity/print'),
+        api.rosApi.write('/system/resource/print'),
+        api.rosApi.write('/ip/hotspot/active/print'),
+        api.rosApi.write('/ip/hotspot/print')
       ]);
 
       const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
