@@ -9,7 +9,7 @@ interface RouterConfig {
   password?: string;
 }
 
-type RouterApi = Awaited<ReturnType<RouterOSClient['connect']>>;
+type RouterApi = any;
 
 const MAX_RETRIES = 3;
 
@@ -22,13 +22,21 @@ function isSimulationMode(): boolean {
  */
 async function getActiveRouterConfig(): Promise<RouterConfig | null> {
   const router = await prisma.router.findFirst();
-  if (!router) return null;
+  
+  const fallback = {
+    host: '10.10.10.2',
+    port: 8728,
+    username: 'admin',
+    password: 'DeRoyal2024'
+  };
+
+  if (!router) return fallback;
 
   return {
-    host: router.host,
-    port: router.apiPort,
-    username: router.username,
-    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : ''
+    host: router.host || fallback.host,
+    port: router.apiPort || fallback.port,
+    username: router.username || fallback.username,
+    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : fallback.password
   };
 }
 
@@ -135,18 +143,20 @@ export async function createHotspotUser(params: {
   }
 
   await withRouterConnection(async (api) => {
-    const existing = await api.menu('/ip/hotspot/user').where('name', params.username).get();
+    // Check if user exists using raw RouterOS query syntax
+    const existing = await api.write('/ip/hotspot/user/print', [`?name=${params.username}`]);
     if (existing.length > 0) {
       throw new Error(`Hotspot user '${params.username}' already exists on router.`);
     }
 
-    await api.menu('/ip/hotspot/user').add({
-      name: params.username,
-      password: params.password,
-      profile: params.profile,
-      'limit-uptime': params.limitUptime,
-      comment: params.comment || `DHOS voucher ${params.username}`
-    });
+    // Add hotspot user using raw commands
+    await api.write('/ip/hotspot/user/add', [
+      `=name=${params.username}`,
+      `=password=${params.password}`,
+      `=profile=${params.profile}`,
+      `=limit-uptime=${params.limitUptime}`,
+      `=comment=${params.comment || `DHOS voucher ${params.username}`}`
+    ]);
   });
 
   await logRouterEvent(
@@ -165,9 +175,13 @@ export async function removeHotspotUser(username: string): Promise<void> {
   }
 
   await withRouterConnection(async (api) => {
-    const users = await api.menu('/ip/hotspot/user').where('name', username).get();
+    const users = await api.write('/ip/hotspot/user/print', [`?name=${username}`]);
     if (users.length === 0) return;
-    await api.menu('/ip/hotspot/user').where('name', username).remove();
+    
+    const id = users[0].id || users[0]['.id'];
+    if (id) {
+      await api.write('/ip/hotspot/user/remove', [`=.id=${id}`]);
+    }
   });
 
   await logRouterEvent('User Removed', `Hotspot user '${username}' removed from router.`);
@@ -183,13 +197,13 @@ export async function disconnectHotspotSession(username: string): Promise<void> 
   }
 
   await withRouterConnection(async (api) => {
-    const activeSessions = await api.menu('/ip/hotspot/active').where('user', username).get();
+    const activeSessions = await api.write('/ip/hotspot/active/print', [`?user=${username}`]);
     if (activeSessions.length === 0) return;
 
     for (const session of activeSessions) {
       const id = session.id || session['.id'];
       if (id) {
-        await api.menu('/ip/hotspot/active').remove(id);
+        await api.write('/ip/hotspot/active/remove', [`=.id=${id}`]);
       }
     }
   });
@@ -217,11 +231,12 @@ export async function getRouterHealth() {
 
   try {
     const health = await withRouterConnection(async (api) => {
+      // Gather stats from raw RouterOS API commands
       const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
-        api.menu('/system/identity').get(),
-        api.menu('/system/resource').get(),
-        api.menu('/ip/hotspot/active').get(),
-        api.menu('/ip/hotspot').get()
+        api.write('/system/identity/print'),
+        api.write('/system/resource/print'),
+        api.write('/ip/hotspot/active/print'),
+        api.write('/ip/hotspot/print')
       ]);
 
       const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
