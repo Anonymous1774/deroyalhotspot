@@ -29,16 +29,16 @@ export async function test(req: Request, res: Response, next: NextFunction) {
 
     let testConfig: any = undefined;
 
-    // If partial body values are provided, merge with stored database configs
-    if (host || port || username || password) {
+    // If partial body values are provided, merge with stored database configs or hardcoded fallbacks
+    if (host || port || username || password !== undefined) {
       const storedRouter = await prisma.router.findFirst();
       testConfig = {
-        host: host || storedRouter?.host || '192.168.88.1',
+        host: host || storedRouter?.host || '10.10.10.2',
         port: port !== undefined ? Number(port) : (storedRouter?.apiPort || 8728),
         username: username || storedRouter?.username || 'admin',
-        password: password !== undefined 
+        password: (password !== undefined && password !== '')
           ? password 
-          : (storedRouter?.encryptedPassword ? decrypt(storedRouter.encryptedPassword) : '')
+          : (storedRouter?.encryptedPassword ? decrypt(storedRouter.encryptedPassword) : 'DeRoyal2024')
       };
     }
 
