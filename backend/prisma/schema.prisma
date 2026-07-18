@@ -1,0 +1,158 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum VoucherStatus {
+  UNUSED
+  ACTIVE
+  EXPIRED
+  DISABLED
+}
+
+enum SessionStatus {
+  ONLINE
+  OFFLINE
+  EXPIRED
+  DISCONNECTED
+}
+
+enum RouterStatus {
+  ONLINE
+  OFFLINE
+}
+
+model Admin {
+  id           String        @id @default(uuid())
+  fullName     String        @map("full_name")
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  role         AdminRole     @default(ADMIN)
+  isActive     Boolean       @default(true) @map("is_active")
+  lastLogin    DateTime?     @map("last_login")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  activityLogs ActivityLog[]
+
+  @@map("admins")
+}
+
+model BandwidthProfile {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  downloadSpeed      String   @map("download_speed") // e.g. "5M" or "5Mbps"
+  uploadSpeed        String   @map("upload_speed")   // e.g. "2M" or "2Mbps"
+  mikrotikQueueName  String   @map("mikrotik_queue_name")
+  status             String   @default("ACTIVE")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  plans              Plan[]
+
+  @@map("bandwidth_profiles")
+}
+
+model Plan {
+  id                 String           @id @default(uuid())
+  name               String
+  description        String?
+  duration           Int              @map("duration_value")
+  durationUnit       String           @map("duration_unit") // e.g. "minutes", "hours", "days"
+  bandwidthProfileId String           @map("bandwidth_profile_id")
+  bandwidthProfile   BandwidthProfile @relation(fields: [bandwidthProfileId], references: [id])
+  price              Float
+  status             String           @default("ACTIVE")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  vouchers           Voucher[]
+
+  @@map("plans")
+  @@index([bandwidthProfileId])
+}
+
+model Voucher {
+  id               String           @id @default(uuid())
+  code             String           @unique
+  planId           String           @map("plan_id")
+  plan             Plan             @relation(fields: [planId], references: [id])
+  status           VoucherStatus    @default(UNUSED)
+  generatedBy      String?          @map("generated_by") // admin user email or ID
+  activatedAt      DateTime?        @map("activated_at")
+  expiresAt        DateTime?        @map("expires_at")
+  activatedIp      String?          @map("activated_ip")
+  activatedMac     String?          @map("activated_mac")
+  mikrotikUsername String?          @map("mikrotik_username")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  hotspotSessions  HotspotSession[]
+
+  @@map("vouchers")
+  @@index([planId])
+  @@index([status])
+}
+
+model HotspotSession {
+  id              String        @id @default(uuid())
+  voucherId       String        @map("voucher_id")
+  voucher         Voucher       @relation(fields: [voucherId], references: [id])
+  username        String
+  ipAddress       String        @map("ip_address")
+  macAddress      String        @map("mac_address")
+  loginTime       DateTime?     @map("login_time")
+  logoutTime      DateTime?     @map("logout_time")
+  sessionDuration Int?          @map("session_duration") // in seconds
+  status          SessionStatus @default(ONLINE)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@map("hotspot_sessions")
+  @@index([username])
+  @@index([macAddress])
+}
+
+model Router {
+  id                String       @id @default(uuid())
+  name              String       @unique
+  host              String
+  apiPort           Int          @default(8728) @map("api_port")
+  username          String
+  encryptedPassword String       @map("encrypted_password")
+  status            RouterStatus @default(OFFLINE)
+  enabled           Boolean      @default(true)
+  lastConnected     DateTime?    @map("last_connected")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  @@map("routers")
+  @@index([status])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  adminId     String?  @map("admin_id")
+  admin       Admin?   @relation(fields: [adminId], references: [id])
+  action      String
+  module      String
+  description String
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("activity_logs")
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique @map("setting_key")
+  value     String   @map("setting_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
