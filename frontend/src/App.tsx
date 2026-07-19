@@ -2522,7 +2522,11 @@ function App() {
     setActivatedVoucher(null);
 
     try {
-      const response = await api.post('/activate', { voucher: code });
+      const response = await api.post('/activate', { 
+        voucher: code,
+        ip: queryParams.get('ip') || queryParams.get('nux-ip') || '',
+        mac: queryParams.get('mac') || queryParams.get('nux-mac') || ''
+      });
       if (response.data && response.data.success) {
         setActivatedVoucher(response.data.data);
         setActivationStatus('success');

@@ -264,7 +264,8 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
       password: username,
       profile,
       limitUptime,
-      comment: `DHOS plan: ${voucher.plan.name}`
+      comment: `DHOS plan: ${voucher.plan.name}`,
+      ip
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Router communication failed';

@@ -169,6 +169,7 @@ export async function createHotspotUser(params: {
   profile: string;
   limitUptime: string;
   comment?: string;
+  ip?: string;
 }): Promise<void> {
   if (isSimulationMode()) {
     console.log(`[SIMULATION] createHotspotUser: ${params.username} (${params.profile}, ${params.limitUptime})`);
@@ -193,6 +194,19 @@ export async function createHotspotUser(params: {
       `=limit-uptime=${params.limitUptime}`,
       `=comment=${params.comment || `DHOS voucher ${params.username}`}`
     ]);
+
+    // If client IP is provided, trigger the server-side login immediately
+    if (params.ip && params.ip !== '0.0.0.0' && !params.ip.startsWith('10.10.10.')) {
+      console.log(`[RouterOS API] Logging in client IP ${params.ip} for user ${params.username}...`);
+      await safeWrite(api, [
+        '/ip/hotspot/active/login',
+        `=ip=${params.ip}`,
+        `=user=${params.username}`,
+        `=password=${params.password}`
+      ]).catch((err) => {
+        console.warn(`[RouterOS API Warning] Direct login for IP ${params.ip} failed:`, err);
+      });
+    }
   });
 
   await logRouterEvent(
