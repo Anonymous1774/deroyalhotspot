@@ -43,11 +43,22 @@ async function safeWrite(api: any, command: string[], timeoutMs: number = 3000):
  * Loads router configurations directly from the .env environment variables.
  */
 async function getActiveRouterConfig(): Promise<RouterConfig | null> {
-  return {
+  const router = await prisma.router.findFirst();
+  
+  const fallback = {
     host: process.env.MIKROTIK_HOST || '10.10.10.2',
     port: parseInt(process.env.MIKROTIK_PORT || '8728', 10),
     username: process.env.MIKROTIK_USERNAME || 'admin',
     password: process.env.MIKROTIK_PASSWORD || 'DeRoyal2024'
+  };
+
+  if (!router) return fallback;
+
+  return {
+    host: router.host || fallback.host,
+    port: router.apiPort || fallback.port,
+    username: router.username || fallback.username,
+    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : fallback.password
   };
 }
 
