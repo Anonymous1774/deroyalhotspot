@@ -20,23 +20,15 @@ function isSimulationMode(): boolean {
 /**
  * Loads router configurations from database and decrypts credentials symmetrically.
  */
+/**
+ * Loads router configurations directly from the .env environment variables.
+ */
 async function getActiveRouterConfig(): Promise<RouterConfig | null> {
-  const router = await prisma.router.findFirst();
-  
-  const fallback = {
-    host: '10.10.10.2',
-    port: 8728,
-    username: 'admin',
-    password: 'DeRoyal2024'
-  };
-
-  if (!router) return fallback;
-
   return {
-    host: router.host || fallback.host,
-    port: router.apiPort || fallback.port,
-    username: router.username || fallback.username,
-    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : fallback.password
+    host: process.env.MIKROTIK_HOST || '10.10.10.2',
+    port: parseInt(process.env.MIKROTIK_PORT || '8728', 10),
+    username: process.env.MIKROTIK_USERNAME || 'admin',
+    password: process.env.MIKROTIK_PASSWORD || 'DeRoyal2024'
   };
 }
 
