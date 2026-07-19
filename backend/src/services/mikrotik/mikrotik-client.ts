@@ -67,6 +67,12 @@ async function withRouterConnection<T>(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const client = createRouterClient(activeConfig);
+    
+    // Catch asynchronous socket errors to prevent node process from crashing
+    client.on('error', (err) => {
+      console.warn(`[RouterOS Socket Error - Attempt ${attempt}]:`, err.message || err);
+    });
+
     try {
       const api = await client.connect();
       const result = await fn(api);
