@@ -141,14 +141,17 @@ export async function createHotspotUser(params: {
   }
 
   await withRouterConnection(async (api) => {
-    // Check if user exists using raw RouterOS query syntax
-    const existing = await api.rosApi.write('/ip/hotspot/user/print', [`?name=${params.username}`]);
+    // Print the user list and filter in JS to prevent RouterOS v7 !empty queries bug
+    const allUsers = await api.rosApi.write(['/ip/hotspot/user/print']);
+    const existing = allUsers.filter((u: any) => u.name === params.username);
+    
     if (existing.length > 0) {
       throw new Error(`Hotspot user '${params.username}' already exists on router.`);
     }
 
-    // Add hotspot user using raw commands
-    await api.rosApi.write('/ip/hotspot/user/add', [
+    // Add hotspot user using raw array syntax
+    await api.rosApi.write([
+      '/ip/hotspot/user/add',
       `=name=${params.username}`,
       `=password=${params.password}`,
       `=profile=${params.profile}`,
@@ -173,12 +176,14 @@ export async function removeHotspotUser(username: string): Promise<void> {
   }
 
   await withRouterConnection(async (api) => {
-    const users = await api.rosApi.write('/ip/hotspot/user/print', [`?name=${username}`]);
+    // Print all users and filter in JS to bypass empty query bugs
+    const allUsers = await api.rosApi.write(['/ip/hotspot/user/print']);
+    const users = allUsers.filter((u: any) => u.name === username);
     if (users.length === 0) return;
     
     const id = users[0].id || users[0]['.id'];
     if (id) {
-      await api.rosApi.write('/ip/hotspot/user/remove', [`=.id=${id}`]);
+      await api.rosApi.write(['/ip/hotspot/user/remove', `=.id=${id}`]);
     }
   });
 
@@ -195,13 +200,15 @@ export async function disconnectHotspotSession(username: string): Promise<void> 
   }
 
   await withRouterConnection(async (api) => {
-    const activeSessions = await api.rosApi.write('/ip/hotspot/active/print', [`?user=${username}`]);
-    if (activeSessions.length === 0) return;
+    // Print all active sessions and filter in JS
+    const activeSessions = await api.rosApi.write(['/ip/hotspot/active/print']);
+    const userSessions = activeSessions.filter((s: any) => s.user === username);
+    if (userSessions.length === 0) return;
 
-    for (const session of activeSessions) {
+    for (const session of userSessions) {
       const id = session.id || session['.id'];
       if (id) {
-        await api.rosApi.write('/ip/hotspot/active/remove', [`=.id=${id}`]);
+        await api.rosApi.write(['/ip/hotspot/active/remove', `=.id=${id}`]);
       }
     }
   });
@@ -229,12 +236,12 @@ export async function getRouterHealth() {
 
   try {
     const health = await withRouterConnection(async (api) => {
-      // Gather stats from raw RouterOS API commands
+      // Gather stats from raw RouterOS API commands using array syntax
       const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
-        api.rosApi.write('/system/identity/print'),
-        api.rosApi.write('/system/resource/print'),
-        api.rosApi.write('/ip/hotspot/active/print'),
-        api.rosApi.write('/ip/hotspot/print')
+        api.rosApi.write(['/system/identity/print']),
+        api.rosApi.write(['/system/resource/print']),
+        api.rosApi.write(['/ip/hotspot/active/print']),
+        api.rosApi.write(['/ip/hotspot/print'])
       ]);
 
       const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
