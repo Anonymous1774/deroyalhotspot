@@ -1,6 +1,15 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
+// Register global error handlers to prevent uncaught socket stream exceptions from crashing the server
+process.on('uncaughtException', (err) => {
+  console.warn('[Uncaught Exception Handled]:', err.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Unhandled Rejection Handled]:', reason);
+});
+
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
