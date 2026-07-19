@@ -85,7 +85,12 @@ async function withRouterConnection<T>(
     });
 
     try {
-      const api = await client.connect();
+      const api = await Promise.race([
+        client.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('RouterOS API connection timeout (3s)')), 3000)
+        )
+      ]);
       const result = await fn(api);
       await client.close();
       return result;
