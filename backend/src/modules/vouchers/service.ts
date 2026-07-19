@@ -247,6 +247,14 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
   const limitUptime = formatLimitUptime(durationValue, unit);
   const profile = voucher.plan.bandwidthProfile.mikrotikQueueName;
 
+  // Format the rate limit string for MikroTik profile auto-creation (format: "upload/download")
+  const cleanSpeed = (val: string) => {
+    const match = val.trim().toUpperCase().match(/^(\d+)([MKG])?/);
+    if (!match) return '1M';
+    return `${match[1]}${match[2] || 'M'}`;
+  };
+  const rateLimit = `${cleanSpeed(voucher.plan.bandwidthProfile.uploadSpeed)}/${cleanSpeed(voucher.plan.bandwidthProfile.downloadSpeed)}`;
+
   // 5. Verify router is reachable before consuming the voucher
   try {
     await ensureRouterReachable();
@@ -265,7 +273,8 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
       profile,
       limitUptime,
       comment: `DHOS plan: ${voucher.plan.name}`,
-      ip
+      ip,
+      rateLimit
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Router communication failed';

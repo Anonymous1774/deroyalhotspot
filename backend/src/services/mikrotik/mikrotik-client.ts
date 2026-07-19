@@ -170,6 +170,7 @@ export async function createHotspotUser(params: {
   limitUptime: string;
   comment?: string;
   ip?: string;
+  rateLimit?: string;
 }): Promise<void> {
   if (isSimulationMode()) {
     console.log(`[SIMULATION] createHotspotUser: ${params.username} (${params.profile}, ${params.limitUptime})`);
@@ -177,7 +178,26 @@ export async function createHotspotUser(params: {
   }
 
   await withRouterConnection(async (api) => {
-    // Print the user list and filter in JS to prevent RouterOS v7 !empty queries bug
+    // 1. Auto-create User Profile on router if it doesn't exist yet
+    const allProfiles = await safeWrite(api, ['/ip/hotspot/user/profile/print']);
+    const profileExists = allProfiles.some((p: any) => p.name === params.profile);
+
+    if (!profileExists) {
+      console.log(`[RouterOS API] User Profile '${params.profile}' not found on router. Creating it automatically...`);
+      const createProfileCmd = [
+        '/ip/hotspot/user/profile/add',
+        `=name=${params.profile}`,
+        '=shared-users=1',
+        '=add-mac-cookie=yes',
+        '=mac-cookie-timeout=3d'
+      ];
+      if (params.rateLimit) {
+        createProfileCmd.push(`=rate-limit=${params.rateLimit}`);
+      }
+      await safeWrite(api, createProfileCmd);
+    }
+
+    // 2. Print the user list and filter in JS to prevent RouterOS v7 !empty queries bug
     const allUsers = await safeWrite(api, ['/ip/hotspot/user/print']);
     const existing = allUsers.filter((u: any) => u.name === params.username);
     
@@ -185,7 +205,7 @@ export async function createHotspotUser(params: {
       throw new Error(`Hotspot user '${params.username}' already exists on router.`);
     }
 
-    // Add hotspot user using raw array syntax
+    // 3. Add hotspot user using raw array syntax
     await safeWrite(api, [
       '/ip/hotspot/user/add',
       `=name=${params.username}`,
@@ -195,7 +215,7 @@ export async function createHotspotUser(params: {
       `=comment=${params.comment || `DHOS voucher ${params.username}`}`
     ]);
 
-    // If client IP is provided, trigger the server-side login immediately
+    // 4. If client IP is provided, trigger the server-side login immediately
     if (params.ip && params.ip !== '0.0.0.0' && !params.ip.startsWith('10.10.10.')) {
       console.log(`[RouterOS API] Logging in client IP ${params.ip} for user ${params.username}...`);
       await safeWrite(api, [
