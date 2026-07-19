@@ -18,6 +18,25 @@ function isSimulationMode(): boolean {
 }
 
 /**
+ * Executes a RouterOS API query wrapping it in a Promise.race timeout.
+ * If the query hangs (a known bug in node-routeros under RouterOS v7 for empty tables),
+ * the timeout resolves it to an empty array fallback instead of hanging the HTTP request.
+ */
+async function safeWrite(api: any, command: string[], timeoutMs: number = 3000): Promise<any[]> {
+  try {
+    return await Promise.race([
+      api.rosApi.write(command),
+      new Promise<any[]>((_, reject) =>
+        setTimeout(() => reject(new Error(`Query timeout: ${command[0]}`)), timeoutMs)
+      )
+    ]);
+  } catch (err) {
+    console.warn(`[RouterOS API Warning] Query ${command[0]} failed/timed out:`, err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/**
  * Loads router configurations from database and decrypts credentials symmetrically.
  */
 /**
@@ -142,7 +161,7 @@ export async function createHotspotUser(params: {
 
   await withRouterConnection(async (api) => {
     // Print the user list and filter in JS to prevent RouterOS v7 !empty queries bug
-    const allUsers = await api.rosApi.write(['/ip/hotspot/user/print']);
+    const allUsers = await safeWrite(api, ['/ip/hotspot/user/print']);
     const existing = allUsers.filter((u: any) => u.name === params.username);
     
     if (existing.length > 0) {
@@ -150,7 +169,7 @@ export async function createHotspotUser(params: {
     }
 
     // Add hotspot user using raw array syntax
-    await api.rosApi.write([
+    await safeWrite(api, [
       '/ip/hotspot/user/add',
       `=name=${params.username}`,
       `=password=${params.password}`,
@@ -177,13 +196,13 @@ export async function removeHotspotUser(username: string): Promise<void> {
 
   await withRouterConnection(async (api) => {
     // Print all users and filter in JS to bypass empty query bugs
-    const allUsers = await api.rosApi.write(['/ip/hotspot/user/print']);
+    const allUsers = await safeWrite(api, ['/ip/hotspot/user/print']);
     const users = allUsers.filter((u: any) => u.name === username);
     if (users.length === 0) return;
     
     const id = users[0].id || users[0]['.id'];
     if (id) {
-      await api.rosApi.write(['/ip/hotspot/user/remove', `=.id=${id}`]);
+      await safeWrite(api, ['/ip/hotspot/user/remove', `=.id=${id}`]);
     }
   });
 
@@ -201,14 +220,14 @@ export async function disconnectHotspotSession(username: string): Promise<void> 
 
   await withRouterConnection(async (api) => {
     // Print all active sessions and filter in JS
-    const activeSessions = await api.rosApi.write(['/ip/hotspot/active/print']);
+    const activeSessions = await safeWrite(api, ['/ip/hotspot/active/print']);
     const userSessions = activeSessions.filter((s: any) => s.user === username);
     if (userSessions.length === 0) return;
 
     for (const session of userSessions) {
       const id = session.id || session['.id'];
       if (id) {
-        await api.rosApi.write(['/ip/hotspot/active/remove', `=.id=${id}`]);
+        await safeWrite(api, ['/ip/hotspot/active/remove', `=.id=${id}`]);
       }
     }
   });
@@ -238,10 +257,10 @@ export async function getRouterHealth() {
     const health = await withRouterConnection(async (api) => {
       // Gather stats from raw RouterOS API commands using array syntax
       const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
-        api.rosApi.write(['/system/identity/print']),
-        api.rosApi.write(['/system/resource/print']),
-        api.rosApi.write(['/ip/hotspot/active/print']),
-        api.rosApi.write(['/ip/hotspot/print'])
+        safeWrite(api, ['/system/identity/print']),
+        safeWrite(api, ['/system/resource/print']),
+        safeWrite(api, ['/ip/hotspot/active/print']),
+        safeWrite(api, ['/ip/hotspot/print'])
       ]);
 
       const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
