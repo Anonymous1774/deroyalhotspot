@@ -2,6 +2,7 @@ import prisma from '../../lib/prisma';
 import { GenerateVouchersInput, UpdateStatusInput } from './validator';
 import { AppError } from '../bandwidth-profiles/service';
 import crypto from 'crypto';
+import {
   createHotspotUser,
   ensureRouterReachable,
   formatLimitUptime,
@@ -242,7 +243,11 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         }
       });
 
-      return updatedVoucher;
+      const remainingMs = updatedVoucher.expiresAt ? Math.max(0, updatedVoucher.expiresAt.getTime() - Date.now()) : 0;
+      return {
+        voucher: updatedVoucher,
+        remainingTime: Math.round(remainingMs / 1000)
+      };
     } else {
       // Mark as expired
       await prisma.voucher.update({
