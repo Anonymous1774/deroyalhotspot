@@ -236,6 +236,27 @@ export async function createHotspotUser(params: {
 }
 
 /**
+ * Triggers a direct active login session for an existing hotspot user on MikroTik.
+ * Used for session re-activation (welcome back / reconnection).
+ */
+export async function loginActiveHotspotUser(username: string, ip: string): Promise<void> {
+  if (isSimulationMode()) {
+    console.log(`[SIMULATION] loginActiveHotspotUser: ${username} on IP ${ip}`);
+    return;
+  }
+
+  await withRouterConnection(async (api) => {
+    console.log(`[RouterOS API] Logging in client IP ${ip} for existing user ${username}...`);
+    await safeWrite(api, [
+      '/ip/hotspot/active/login',
+      `=ip=${ip}`,
+      `=user=${username}`,
+      `=password=${username}`
+    ]);
+  });
+}
+
+/**
  * Removes a hotspot user from MikroTik (used for rollback or cleanup).
  */
 export async function removeHotspotUser(username: string): Promise<void> {

@@ -2,11 +2,11 @@ import prisma from '../../lib/prisma';
 import { GenerateVouchersInput, UpdateStatusInput } from './validator';
 import { AppError } from '../bandwidth-profiles/service';
 import crypto from 'crypto';
-import {
   createHotspotUser,
   ensureRouterReachable,
   formatLimitUptime,
-  removeHotspotUser
+  removeHotspotUser,
+  loginActiveHotspotUser
 } from '../../services/mikrotik/mikrotik-client';
 
 /**
@@ -215,7 +215,44 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
     throw new AppError('Voucher code not found. Please verify the code and try again.', 404);
   }
 
-  // 2. Validate voucher status
+  // 2. Validate voucher status or handle re-login if already active and not expired
+  const now = new Date();
+  if (voucher.status === 'ACTIVE') {
+    if (voucher.expiresAt && voucher.expiresAt > now) {
+      console.log(`[Voucher Service] Re-authenticating active voucher ${code} for client IP ${ip}...`);
+      if (ip && ip !== '0.0.0.0' && !ip.startsWith('10.10.10.')) {
+        await loginActiveHotspotUser(voucher.code, ip).catch((err) => {
+          console.warn(`[Voucher Service Warning] Re-login failed:`, err);
+        });
+      }
+
+      // Update the active IP and MAC to match the new connection coordinates
+      const updatedVoucher = await prisma.voucher.update({
+        where: { id: voucher.id },
+        data: {
+          activatedIp: ip || voucher.activatedIp,
+          activatedMac: mac || voucher.activatedMac
+        },
+        include: {
+          plan: {
+            include: {
+              bandwidthProfile: true
+            }
+          }
+        }
+      });
+
+      return updatedVoucher;
+    } else {
+      // Mark as expired
+      await prisma.voucher.update({
+        where: { id: voucher.id },
+        data: { status: 'EXPIRED' }
+      });
+      throw new AppError('This voucher has already expired.', 400);
+    }
+  }
+
   if (voucher.status !== 'UNUSED') {
     throw new AppError(`This voucher code is already ${voucher.status.toLowerCase()}.`, 400);
   }
