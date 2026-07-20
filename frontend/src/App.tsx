@@ -2423,23 +2423,7 @@ function App() {
 
   // Read MikroTik redirect query parameters from Starlink/hAP ax3 gateway
   const queryParams = new URLSearchParams(window.location.search);
-  const isRedirection = queryParams.has('mac') || queryParams.has('nux-mac') || queryParams.has('link-login') || queryParams.has('link_login');
-  
-  const linkLogin = queryParams.get('link-login') || queryParams.get('link_login') || queryParams.get('link-login-only') || 'http://hotspot.lan/login';
   const linkOrig = queryParams.get('link-orig') || queryParams.get('link_orig') || 'https://google.com';
-
-  // Auto-submit hotspot login form on activation success
-  useEffect(() => {
-    if (activationStatus === 'success' && isRedirection) {
-      const timer = setTimeout(() => {
-        const form = document.getElementById('hotspot-login-form') as HTMLFormElement;
-        if (form) {
-          form.submit();
-        }
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [activationStatus, isRedirection]);
 
   // 1. Check if user has an active, valid session on load
   useEffect(() => {
@@ -2629,25 +2613,11 @@ function App() {
                 </div>
 
                 <div className="space-y-2 pt-2">
-                  {isRedirection && (
-                    <form id="hotspot-login-form" action={linkLogin} method="POST" className="hidden">
-                      <input type="hidden" name="username" value={voucherCode.trim().toUpperCase()} />
-                      <input type="hidden" name="password" value={voucherCode.trim().toUpperCase()} />
-                      <input type="hidden" name="dst" value={linkOrig} />
-                    </form>
-                  )}
                   <a
-                    href={isRedirection ? "#" : "https://google.com"}
-                    onClick={(e) => {
-                      if (isRedirection) {
-                        e.preventDefault();
-                        const form = document.getElementById('hotspot-login-form') as HTMLFormElement;
-                        if (form) form.submit();
-                      }
-                    }}
+                    href={linkOrig || "https://google.com"}
                     className="w-full inline-block bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-4 rounded-button shadow-medium transition-all text-sm"
                   >
-                    {isRedirection ? "Connecting you..." : "Start Browsing"}
+                    Start Browsing
                   </a>
                   <button
                     onClick={() => {
