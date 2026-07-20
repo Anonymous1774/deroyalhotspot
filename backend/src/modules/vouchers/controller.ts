@@ -183,9 +183,10 @@ export async function activate(req: Request, res: Response, next: NextFunction) 
     const { voucher } = validation.data;
     const ip = req.body.ip || req.ip || String(req.headers['x-forwarded-for'] || '0.0.0.0');
     const mac = req.body.mac || req.body.macAddress || null;
+    const userAgent = req.headers['user-agent'] || undefined;
 
     // 2. Call service
-    const result = await service.activateVoucherCode(voucher, ip, mac);
+    const result = await service.activateVoucherCode(voucher, ip, mac, userAgent);
 
     // 3. Log activity (public event: no admin ID)
     await prisma.activityLog.create({

@@ -428,3 +428,25 @@ async function getSimulatedHealth(reason?: string) {
     simulationReason: reason
   };
 }
+
+/**
+ * Resolves the device's host-name from the DHCP leases table on the MikroTik router.
+ */
+export async function getLeaseDeviceName(macAddress: string): Promise<string> {
+  if (isSimulationMode() || !macAddress) {
+    return 'Simulated Device';
+  }
+
+  try {
+    return await withRouterConnection(async (api) => {
+      const leases = await safeWrite(api, ['/ip/dhcp-server/lease/print']);
+      // Look for the lease matching our client MAC address
+      const targetMac = macAddress.trim().toUpperCase();
+      const lease = leases.find((l: any) => l['mac-address']?.toUpperCase() === targetMac);
+      return lease?.['host-name'] || 'Unknown Device';
+    });
+  } catch (err) {
+    console.warn(`[RouterOS API Warning] Failed to fetch DHCP lease host-name for MAC ${macAddress}:`, err);
+    return 'Unknown Device';
+  }
+}

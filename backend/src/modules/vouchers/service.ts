@@ -7,7 +7,8 @@ import {
   ensureRouterReachable,
   formatLimitUptime,
   removeHotspotUser,
-  loginActiveHotspotUser
+  loginActiveHotspotUser,
+  getLeaseDeviceName
 } from '../../services/mikrotik/mikrotik-client';
 
 /**
@@ -229,7 +230,7 @@ export async function deleteAllVouchers() {
 /**
  * Activates an unused voucher code, calculates expiration, and logs a hotspot session.
  */
-export async function activateVoucherCode(code: string, ip?: string, mac?: string) {
+export async function activateVoucherCode(code: string, ip?: string, mac?: string, userAgent?: string) {
   // 1. Fetch voucher (case-insensitive)
   const voucher = await prisma.voucher.findFirst({
     where: {
@@ -399,6 +400,40 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         status: 'ONLINE'
       }
     });
+
+    if (mac && mac !== '00:00:00:00:00:00') {
+      const deviceName = await getLeaseDeviceName(mac).catch(() => 'Unknown Device');
+      await prisma.registeredDevice.upsert({
+        where: { macAddress: mac.trim().toUpperCase() },
+        update: {
+          voucherId: voucher.id,
+          lastIpAddress: ip || null,
+          deviceName,
+          userAgent: userAgent || null,
+          lastSeen: new Date()
+        },
+        create: {
+          voucherId: voucher.id,
+          macAddress: mac.trim().toUpperCase(),
+          deviceName,
+          userAgent: userAgent || null,
+          lastIpAddress: ip || null,
+          firstSeen: new Date(),
+          lastSeen: new Date(),
+          isBlocked: false
+        }
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          adminId: null,
+          action: 'Device Registered',
+          module: 'ROUTER',
+          description: `Device MAC '${mac.trim().toUpperCase()}' (${deviceName}) registered for voucher '${updatedVoucher.code}'.`,
+          ipAddress: ip || null
+        }
+      }).catch((e) => console.error('Failed to log device registration:', e));
+    }
 
     return {
       voucher: updatedVoucher,

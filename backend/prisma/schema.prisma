@@ -91,8 +91,8 @@ model Voucher {
   activatedMac     String?          @map("activated_mac")
   mikrotikUsername String?          @map("mikrotik_username")
   createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  hotspotSessions  HotspotSession[]
+  hotspotSessions   HotspotSession[]
+  registeredDevices RegisteredDevice[]
 
   @@map("vouchers")
   @@index([planId])
@@ -155,4 +155,23 @@ model SystemSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model RegisteredDevice {
+  id            String   @id @default(uuid())
+  voucherId     String   @map("voucher_id")
+  voucher       Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  macAddress    String   @unique @map("mac_address")
+  deviceName    String?  @map("device_name")
+  userAgent     String?  @map("user_agent")
+  lastIpAddress String?  @map("last_ip_address")
+  firstSeen     DateTime @default(now()) @map("first_seen")
+  lastSeen      DateTime @default(now()) @map("last_seen")
+  isBlocked     Boolean  @default(false) @map("is_blocked")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("registered_devices")
+  @@index([macAddress])
+  @@index([voucherId])
 }

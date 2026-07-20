@@ -2444,11 +2444,11 @@ function App() {
   const [loginError, setLoginError] = useState('');
   const [loginSubmitting, setLoginSubmitting] = useState(false);
 
-  // Mock voucher state for demonstration
   const [voucherCode, setVoucherCode] = useState('');
   const [activationStatus, setActivationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [activatedVoucher, setActivatedVoucher] = useState<any>(null);
+  const [autoAuthenticating, setAutoAuthenticating] = useState(false);
 
   // Read MikroTik redirect query parameters from Starlink/hAP ax3 gateway
   const queryParams = new URLSearchParams(window.location.search);
@@ -2456,6 +2456,56 @@ function App() {
   
   const linkLogin = queryParams.get('link-login') || queryParams.get('link_login') || queryParams.get('link-login-only') || 'http://hotspot.lan/login';
   const linkOrig = queryParams.get('link-orig') || queryParams.get('link_orig') || 'https://google.com';
+
+  // Automatic Device Reauthentication check on mount
+  useEffect(() => {
+    const mac = queryParams.get('mac') || queryParams.get('nux-mac');
+    const ip = queryParams.get('ip') || queryParams.get('nux-ip');
+    
+    // Only check if we are on the customer portal (root path) and have a client MAC address
+    if (window.location.pathname === '/' && mac) {
+      async function autoReauthenticate() {
+        try {
+          // 1. Call GET /api/v1/device/check
+          const checkRes = await api.get(`/device/check?mac=${mac}`);
+          if (checkRes.data && checkRes.data.success && checkRes.data.data.registered && checkRes.data.data.voucherActive) {
+            console.log('[Auto-Auth] Device is registered and voucher is active. Triggering reauthentication...');
+            setAutoAuthenticating(true);
+            setActivationStatus('loading');
+            
+            // 2. Call POST /api/v1/device/reauthenticate
+            const reauthRes = await api.post('/device/reauthenticate', { mac, ip: ip || '' });
+            if (reauthRes.data && reauthRes.data.success) {
+              console.log('[Auto-Auth] Reauthenticated successfully!');
+              
+              // We simulate the success state so the user lands on the success view
+              setActivatedVoucher({
+                code: checkRes.data.data.code || 'Auto-Login',
+                expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+                plan: {
+                  name: 'Automatic Reconnection',
+                  price: 0,
+                  duration: 1,
+                  durationUnit: 'Hours',
+                  bandwidthProfile: 'Auto Profile'
+                }
+              });
+              setActivationStatus('success');
+            } else {
+              console.warn('[Auto-Auth] Reauthentication failed:', reauthRes.data.message);
+              setActivationStatus('idle');
+            }
+          }
+        } catch (err) {
+          console.warn('[Auto-Auth] Automatic device reauthentication failed:', err);
+          setActivationStatus('idle');
+        } finally {
+          setAutoAuthenticating(false);
+        }
+      }
+      autoReauthenticate();
+    }
+  }, []);
 
   // Auto-submit hotspot login form on activation success
   useEffect(() => {
@@ -2588,7 +2638,22 @@ function App() {
           </div>
 
           <div className="max-w-md w-full mx-auto bg-white/95 backdrop-blur-md p-8 rounded-card shadow-xlarge border border-white/50 relative z-10 my-8">
-            {activationStatus === 'idle' || activationStatus === 'loading' ? (
+            {autoAuthenticating ? (
+              <div className="text-center space-y-6 py-6 animate-scale-in">
+                <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto border border-brand-300">
+                  <svg className="animate-spin h-8 w-8 text-brand-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-neutral-900">Welcome Back!</h3>
+                  <p className="text-neutral-500 font-medium mt-1 text-sm">
+                    Reconnecting your device to the internet...
+                  </p>
+                </div>
+              </div>
+            ) : activationStatus === 'idle' || activationStatus === 'loading' ? (
               <form onSubmit={handleActivate} className="space-y-6">
                 <div>
                   <label htmlFor="voucher" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">

@@ -41,9 +41,11 @@ import logsRoutes from './modules/logs';
 import settingsRoutes from './modules/settings';
 import routerRoutes from './modules/router';
 import dashboardRoutes from './modules/dashboard';
+import deviceRoutes from './modules/device';
 import { activate as activateVoucher } from './modules/vouchers/controller';
 
 app.post('/api/v1/activate', activateVoucher); // Public endpoint
+app.use('/api/v1/device', deviceRoutes); // Public device endpoints
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/bandwidth-profiles', bandwidthProfilesRoutes);
