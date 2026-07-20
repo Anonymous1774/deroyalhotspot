@@ -151,8 +151,8 @@ export async function activate(req: Request, res: Response, next: NextFunction) 
     }
 
     const { voucher } = validation.data;
-    const ip = req.ip || String(req.headers['x-forwarded-for'] || '0.0.0.0');
-    const mac = req.body.macAddress || req.body.mac || null;
+    const ip = req.body.ip || req.ip || String(req.headers['x-forwarded-for'] || '0.0.0.0');
+    const mac = req.body.mac || req.body.macAddress || null;
 
     // 2. Call service
     const result = await service.activateVoucherCode(voucher, ip, mac);
