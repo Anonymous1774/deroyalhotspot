@@ -173,7 +173,8 @@ export async function disableVoucher(id: string) {
 }
 
 /**
- * Deletes an unused voucher.
+ * Deletes a voucher (active, unused, or expired).
+ * Clears related hotspot sessions and router accounts if active.
  */
 export async function deleteVoucher(id: string) {
   const voucher = await prisma.voucher.findUnique({
@@ -184,12 +185,45 @@ export async function deleteVoucher(id: string) {
     throw new AppError('Voucher not found.', 404);
   }
 
-  if (voucher.status !== 'UNUSED') {
-    throw new AppError('Only unused vouchers can be deleted to maintain referential integrity.', 400);
+  // Remove corresponding hotspot user from MikroTik router if it was active
+  if (voucher.status === 'ACTIVE') {
+    await removeHotspotUser(voucher.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${voucher.code}' from router:`, err);
+    });
   }
+
+  // Delete related hotspot sessions to preserve referential integrity
+  await prisma.hotspotSession.deleteMany({
+    where: { voucherId: id }
+  });
+
   return prisma.voucher.delete({
     where: { id }
   });
+}
+
+/**
+ * Deletes all vouchers in the database.
+ * Clears all hotspot sessions and router accounts.
+ */
+export async function deleteAllVouchers() {
+  // 1. Fetch active vouchers to clean up RouterOS users
+  const activeVouchers = await prisma.voucher.findMany({
+    where: { status: 'ACTIVE' },
+    select: { code: true }
+  });
+
+  for (const v of activeVouchers) {
+    await removeHotspotUser(v.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${v.code}' from router on bulk delete:`, err);
+    });
+  }
+
+  // 2. Delete all hotspot sessions
+  await prisma.hotspotSession.deleteMany({});
+
+  // 3. Delete all vouchers
+  return prisma.voucher.deleteMany({});
 }
 
 /**
@@ -213,7 +247,7 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
   });
 
   if (!voucher) {
-    throw new AppError('Voucher code not found. Please verify the code and try again.', 404);
+    throw new AppError('Invalid voucher code. Please check the code and try again.', 404);
   }
 
   // 2. Validate voucher status or handle re-login if already active and not expired
@@ -254,12 +288,20 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         where: { id: voucher.id },
         data: { status: 'EXPIRED' }
       });
-      throw new AppError('This voucher has already expired.', 400);
+      throw new AppError('This voucher code has already been used.', 400);
     }
   }
 
+  if (voucher.status === 'EXPIRED') {
+    throw new AppError('This voucher code has already been used.', 400);
+  }
+
+  if (voucher.status === 'DISABLED') {
+    throw new AppError('This voucher code is disabled.', 400);
+  }
+
   if (voucher.status !== 'UNUSED') {
-    throw new AppError(`This voucher code is already ${voucher.status.toLowerCase()}.`, 400);
+    throw new AppError('This voucher code has already been used.', 400);
   }
 
   // 3. Validate linked plan status

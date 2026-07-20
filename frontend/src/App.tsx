@@ -189,12 +189,13 @@ const AdminDashboard = () => {
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
-          { title: 'Total Plans', value: stats ? String(stats.plansCount) : '-', change: 'Bronze, Silver, Gold, etc.', color: 'border-brand-600 text-brand-700' },
+          { title: 'Total Income', value: stats ? `₦${Number(stats.totalIncome || 0).toLocaleString()}` : '-', change: 'Revenue from active/used plans', color: 'border-brand-600 text-brand-700' },
+          { title: 'Online Users', value: stats ? String(stats.onlineUsersCount) : '-', change: 'Active internet sessions', color: 'border-warning text-warning' },
           { title: 'Active Vouchers', value: stats ? String(stats.activeVouchersCount) : '-', change: 'Vouchers currently active', color: 'border-success text-success' },
           { title: 'Unused Vouchers', value: stats ? String(stats.unusedVouchersCount) : '-', change: 'Ready for print/export', color: 'border-info text-info' },
-          { title: 'Online Users', value: stats ? String(stats.onlineUsersCount) : '-', change: 'Active internet sessions', color: 'border-warning text-warning' }
+          { title: 'Total Plans', value: stats ? String(stats.plansCount) : '-', change: 'Bronze, Silver, Gold, etc.', color: 'border-neutral-400 text-neutral-600' }
         ].map((card, idx) => (
           <div key={idx} className={`bg-white p-6 rounded-card shadow-small border-l-4 ${card.color} animate-scale-in`}>
             <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">{card.title}</p>
@@ -1277,6 +1278,27 @@ const VouchersPage = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("WARNING: Are you absolutely sure you want to delete ALL vouchers? This will also clear all online hotspot sessions and active router accounts! This action CANNOT be undone.")) {
+      return;
+    }
+    if (!window.confirm("Double confirmation: Delete everything?")) {
+      return;
+    }
+    try {
+      const res = await api.delete('/vouchers/delete-all');
+      if (res.data && res.data.success) {
+        alert("All vouchers and sessions deleted successfully.");
+        fetchVouchers();
+      } else {
+        alert(res.data.message || 'Failed to delete all vouchers.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Error occurred while deleting all vouchers.');
+    }
+  };
+
   const exportVouchers = () => {
     if (vouchers.length === 0) return;
     const headers = ['Voucher Code', 'Plan', 'Bandwidth Profile', 'Price', 'Status', 'Generated At'];
@@ -1320,6 +1342,13 @@ const VouchersPage = () => {
             className="flex-1 sm:flex-initial bg-neutral-100 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-800 font-semibold py-2 px-4 rounded-medium text-sm transition-colors duration-150"
           >
             Export CSV
+          </button>
+          <button 
+            onClick={handleDeleteAll}
+            disabled={vouchers.length === 0}
+            className="flex-1 sm:flex-initial bg-danger/10 hover:bg-danger/20 disabled:opacity-50 disabled:cursor-not-allowed text-danger font-semibold py-2 px-4 rounded-medium text-sm transition-colors duration-150 border border-danger/25"
+          >
+            Delete All
           </button>
         </div>
       </div>

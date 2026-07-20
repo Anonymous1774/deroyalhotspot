@@ -29,11 +29,29 @@ export async function getDashboardStats() {
     })
   ]);
 
+  const sales = await prisma.voucher.findMany({
+    where: {
+      status: {
+        in: ['ACTIVE', 'EXPIRED']
+      }
+    },
+    select: {
+      plan: {
+        select: {
+          price: true
+        }
+      }
+    }
+  });
+
+  const totalIncome = sales.reduce((sum, v) => sum + v.plan.price, 0);
+
   return {
     plansCount,
     activeVouchersCount,
     unusedVouchersCount,
     onlineUsersCount,
-    recentActivity
+    recentActivity,
+    totalIncome
   };
 }

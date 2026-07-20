@@ -133,6 +133,36 @@ export async function remove(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
+ * Controller to delete all vouchers.
+ */
+export async function removeAll(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await service.deleteAllVouchers();
+
+    await prisma.activityLog.create({
+      data: {
+        adminId: req.admin?.id || null,
+        action: 'All Vouchers Deleted',
+        module: 'VOUCHER',
+        description: `All vouchers (${result.count} count) were deleted from the system.`,
+        ipAddress: req.ip || null
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'All vouchers deleted successfully.',
+      data: {
+        count: result.count
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Public controller to activate a customer voucher.
  */
 export async function activate(req: Request, res: Response, next: NextFunction) {
