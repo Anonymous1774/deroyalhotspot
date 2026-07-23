@@ -247,12 +247,21 @@ export async function loginActiveHotspotUser(username: string, ip: string): Prom
 
   await withRouterConnection(async (api) => {
     console.log(`[RouterOS API] Logging in client IP ${ip} for existing user ${username}...`);
-    await safeWrite(api, [
-      '/ip/hotspot/active/login',
-      `=ip=${ip}`,
-      `=user=${username}`,
-      `=password=${username}`
-    ]);
+    try {
+      await safeWrite(api, [
+        '/ip/hotspot/active/login',
+        `=ip=${ip}`,
+        `=user=${username}`,
+        `=password=${username}`
+      ]);
+    } catch (err: any) {
+      const errMsg = String(err.message || err).toLowerCase();
+      if (errMsg.includes('already') || errMsg.includes('active')) {
+        console.log(`[RouterOS API] User ${username} is already active/logged in. Ignoring error.`);
+        return;
+      }
+      throw err;
+    }
   });
 }
 

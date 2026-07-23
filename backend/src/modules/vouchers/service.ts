@@ -8,7 +8,8 @@ import {
   formatLimitUptime,
   removeHotspotUser,
   loginActiveHotspotUser,
-  getLeaseDeviceName
+  getLeaseDeviceName,
+  disconnectHotspotSession
 } from '../../services/mikrotik/mikrotik-client';
 
 /**
@@ -167,6 +168,16 @@ export async function disableVoucher(id: string) {
     throw new AppError(`Cannot disable a voucher that is already ${voucher.status.toLowerCase()}.`, 400);
   }
 
+  // If the voucher is active, disable on router and disconnect active session
+  if (voucher.status === 'ACTIVE') {
+    await removeHotspotUser(voucher.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to delete disabled hotspot user '${voucher.code}' from router:`, err);
+    });
+    await disconnectHotspotSession(voucher.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to disconnect disabled active session for '${voucher.code}' on router:`, err);
+    });
+  }
+
   return prisma.voucher.update({
     where: { id },
     data: { status: 'DISABLED' }
@@ -186,10 +197,13 @@ export async function deleteVoucher(id: string) {
     throw new AppError('Voucher not found.', 404);
   }
 
-  // Remove corresponding hotspot user from MikroTik router if it was active
+  // Remove corresponding hotspot user and session from MikroTik router if it was active
   if (voucher.status === 'ACTIVE') {
     await removeHotspotUser(voucher.code).catch((err) => {
-      console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${voucher.code}' from router:`, err);
+      console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${voucher.code}' from router on delete:`, err);
+    });
+    await disconnectHotspotSession(voucher.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to disconnect active session for '${voucher.code}' on router on delete:`, err);
     });
   }
 
@@ -217,6 +231,9 @@ export async function deleteAllVouchers() {
   for (const v of activeVouchers) {
     await removeHotspotUser(v.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${v.code}' from router on bulk delete:`, err);
+    });
+    await disconnectHotspotSession(v.code).catch((err) => {
+      console.warn(`[Voucher Service Warning] Failed to disconnect active session for '${v.code}' from router on bulk delete:`, err);
     });
   }
 

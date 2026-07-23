@@ -108,9 +108,10 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     }).catch(e => console.error('Failed to log unhandled VPS exception to DB:', e));
   }
 
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal server error' 
-    : err.message || 'Internal server error';
+  // Mask 500 server errors in production, but let client errors (400, 404, etc.) pass through
+  const message = (statusCode >= 500 && process.env.NODE_ENV === 'production')
+    ? 'Internal server error'
+    : err.message || 'An error occurred';
 
   res.status(statusCode).json({
     success: false,
