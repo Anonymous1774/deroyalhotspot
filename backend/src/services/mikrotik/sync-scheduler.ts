@@ -1,5 +1,5 @@
 import prisma from '../../lib/prisma';
-import { getRouterHealth } from './mikrotik-client';
+import { getRouterHealth, removeHotspotUser, disconnectHotspotSession } from './mikrotik-client';
 
 let syncInterval: NodeJS.Timeout | null = null;
 
@@ -63,13 +63,23 @@ async function performSynchronization() {
     for (const voucher of expiredVouchers) {
       const disconnectTime = voucher.expiresAt || now;
 
-      // Update voucher status to EXPIRED
+      // 1. Terminate user account on the router so they can't reconnect
+      await removeHotspotUser(voucher.code).catch((err) => {
+        console.warn(`[Scheduler Warning] Failed to delete hotspot user '${voucher.code}' from router on expiration:`, err);
+      });
+
+      // 2. Disconnect active session immediately to cut off internet
+      await disconnectHotspotSession(voucher.code).catch((err) => {
+        console.warn(`[Scheduler Warning] Failed to disconnect active session for '${voucher.code}' from router on expiration:`, err);
+      });
+
+      // 3. Update voucher status to EXPIRED in database
       await prisma.voucher.update({
         where: { id: voucher.id },
         data: { status: 'EXPIRED' }
       });
 
-      // Update corresponding online sessions to DISCONNECTED
+      // 4. Update corresponding online sessions to DISCONNECTED in database
       await prisma.hotspotSession.updateMany({
         where: {
           voucherId: voucher.id,
@@ -81,7 +91,7 @@ async function performSynchronization() {
         }
       });
 
-      // Log system audit log for automatic expiration
+      // 5. Log system audit log for automatic expiration
       await prisma.activityLog.create({
         data: {
           adminId: null,
