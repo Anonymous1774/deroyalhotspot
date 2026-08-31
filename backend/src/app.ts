@@ -12,9 +12,10 @@ app.set('trust proxy', 1);
 // Security Middlewares
 app.use(helmet());
 app.use(cors({
-  origin: process.env.APP_URL || 'http://localhost:5173',
+  origin: true,
   credentials: true
 }));
+
 
 // Rate Limiter
 const generalLimiter = rateLimit({

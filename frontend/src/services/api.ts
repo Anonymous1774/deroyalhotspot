@@ -1,11 +1,26 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    if (port === '8080') {
+      return `${protocol}//${hostname}:5001/api/v1`;
+    }
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && port !== '5173') {
+      return '/api/v1';
+    }
+  }
+  return 'http://localhost:5000/api/v1';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json'
   }
 });
+
 
 // Request interceptor: automatically add Bearer token to requests
 api.interceptors.request.use(
