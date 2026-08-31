@@ -46,7 +46,9 @@ import deviceRoutes from './modules/device';
 import { activate as activateVoucher } from './modules/vouchers/controller';
 
 app.post('/api/v1/activate', activateVoucher); // Public endpoint
+app.post('/api/v1/vouchers/activate', activateVoucher); // Public voucher activation endpoint
 app.use('/api/v1/device', deviceRoutes); // Public device endpoints
+
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/bandwidth-profiles', bandwidthProfilesRoutes);
