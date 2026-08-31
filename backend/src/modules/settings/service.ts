@@ -35,34 +35,38 @@ export async function updateSettings(data: UpdateSettingsInput) {
   return await prisma.$transaction(async (tx) => {
     // 1. Update System Settings (Key-Value entries)
     if (data.company_name !== undefined) {
+      const val = String(data.company_name);
       await tx.systemSetting.upsert({
         where: { key: 'company_name' },
-        update: { value: data.company_name },
-        create: { key: 'company_name', value: data.company_name }
+        update: { value: val },
+        create: { key: 'company_name', value: val }
       });
     }
 
     if (data.support_phone !== undefined) {
+      const val = String(data.support_phone);
       await tx.systemSetting.upsert({
         where: { key: 'support_phone' },
-        update: { value: data.support_phone },
-        create: { key: 'support_phone', value: data.support_phone }
+        update: { value: val },
+        create: { key: 'support_phone', value: val }
       });
     }
 
     if (data.support_email !== undefined) {
+      const val = String(data.support_email);
       await tx.systemSetting.upsert({
         where: { key: 'support_email' },
-        update: { value: data.support_email },
-        create: { key: 'support_email', value: data.support_email }
+        update: { value: val },
+        create: { key: 'support_email', value: val }
       });
     }
 
     if (data.session_timeout !== undefined) {
+      const val = String(data.session_timeout);
       await tx.systemSetting.upsert({
         where: { key: 'session_timeout' },
-        update: { value: data.session_timeout },
-        create: { key: 'session_timeout', value: data.session_timeout }
+        update: { value: val },
+        create: { key: 'session_timeout', value: val }
       });
     }
 
@@ -74,6 +78,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
         create: { key: 'voucher_length', value: lengthVal }
       });
     }
+
 
     // 2. Update Router Configuration
     const hasRouterUpdate = 

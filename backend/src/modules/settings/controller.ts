@@ -60,6 +60,8 @@ export async function update(req: Request, res: Response, next: NextFunction) {
     });
 
   } catch (error) {
+    console.error('Settings update error:', error);
     next(error);
   }
 }
+
