@@ -44,7 +44,7 @@ export const AdminDashboardPage: React.FC = () => {
   const fetchRouterStatus = async () => {
     setLoadingRouter(true);
     try {
-      const res = await api.get('/dashboard/router-status');
+      const res = await api.get('/router/status');
       if (res.data && res.data.success) {
         setRouterStatus(res.data.data);
       }
@@ -54,6 +54,7 @@ export const AdminDashboardPage: React.FC = () => {
       setLoadingRouter(false);
     }
   };
+
 
   const handleRefresh = async () => {
     await Promise.all([fetchDashboardData(), fetchRouterStatus()]);
