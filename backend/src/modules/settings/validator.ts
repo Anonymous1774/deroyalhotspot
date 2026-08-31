@@ -20,14 +20,10 @@ export const updateSettingsSchema = z.object({
     .email({ message: 'A valid support email is required.' })
     .optional(),
   session_timeout: z
-    .string()
-    .regex(/^\d+$/, { message: 'Session timeout must be a positive integer in seconds.' })
+    .union([z.number(), z.string()])
     .optional(),
   voucher_length: z
-    .number()
-    .int()
-    .min(4, { message: 'Voucher length must be at least 4 characters.' })
-    .max(20, { message: 'Voucher length cannot exceed 20 characters.' })
+    .union([z.number(), z.string()])
     .optional(),
   router_host: z
     .string()
@@ -35,9 +31,7 @@ export const updateSettingsSchema = z.object({
     .min(1, { message: 'Router host address cannot be empty.' })
     .optional(),
   router_port: z
-    .number()
-    .int()
-    .positive({ message: 'API Port must be a positive integer.' })
+    .union([z.number(), z.string()])
     .optional(),
   router_username: z
     .string()
@@ -47,6 +41,7 @@ export const updateSettingsSchema = z.object({
   router_password: z
     .string()
     .optional()
+
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

@@ -87,7 +87,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
 
       const routerData: any = {};
       if (data.router_host !== undefined) routerData.host = data.router_host;
-      if (data.router_port !== undefined) routerData.apiPort = data.router_port;
+      if (data.router_port !== undefined) routerData.apiPort = Number(data.router_port);
       if (data.router_username !== undefined) routerData.username = data.router_username;
       if (data.router_password !== undefined && data.router_password !== '') {
         routerData.encryptedPassword = encrypt(data.router_password);
@@ -103,7 +103,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
           data: {
             name: 'Primary Router',
             host: data.router_host || '192.168.88.1',
-            apiPort: data.router_port || 8728,
+            apiPort: Number(data.router_port) || 8728,
             username: data.router_username || 'admin',
             encryptedPassword: data.router_password ? encrypt(data.router_password) : '',
             status: 'OFFLINE',
@@ -111,6 +111,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
           }
         });
       }
+
     }
 
     // 3. Return fresh values
