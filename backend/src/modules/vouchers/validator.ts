@@ -27,15 +27,27 @@ export const updateStatusSchema = z.object({
 export type GenerateVouchersInput = z.infer<typeof generateVouchersSchema>;
 export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;
 
-/**
- * Validation schema for voucher activation.
- */
 export const activateVoucherSchema = z.object({
   voucher: z
     .string()
     .trim()
     .min(1, { message: 'Voucher code is required.' })
     .toUpperCase()
+    .optional(),
+  code: z
+    .string()
+    .trim()
+    .min(1, { message: 'Voucher code is required.' })
+    .toUpperCase()
+    .optional(),
+  mac: z.string().optional(),
+  macAddress: z.string().optional(),
+  ip: z.string().optional(),
+  ipAddress: z.string().optional()
+}).refine((data) => !!(data.voucher || data.code), {
+  message: 'Voucher code is required.',
+  path: ['code']
 });
 
 export type ActivateVoucherInput = z.infer<typeof activateVoucherSchema>;
+
