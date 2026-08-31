@@ -1,0 +1,25 @@
+# DeRoyal Hotspot OS - Full System Reference & Documentation
+
+## Overview
+DeRoyal Hotspot OS (https://deroyalhotspot.name.ng/) provides complete infrastructure management for public and private Wi-Fi networks. It bridges client devices, captive portal pages, router gateways (such as MikroTik RouterOS), and backend billing/voucher systems.
+
+## Domain Configuration
+- Custom Domain: `deroyalhotspot.name.ng`
+- Captive Portal Gateway URL: `https://deroyalhotspot.name.ng/`
+- Admin Operating System URL: `https://deroyalhotspot.name.ng/admin`
+
+## User Journey
+1. Client connects to Wi-Fi SSID provided by DeRoyal Hotspot OS.
+2. Router redirects browser to captive portal page `https://deroyalhotspot.name.ng/` with MAC and IP parameters.
+3. User enters a valid voucher code or selects a paid high-speed plan.
+4. Portal validates voucher against backend API, registers device MAC address, and sends login instructions to MikroTik router gateway.
+5. Client device receives instant internet access according to assigned bandwidth speed limits (Download/Upload queues).
+
+## Admin Modules
+- Dashboard: Real-time network statistics, connected user counter, revenue, router CPU/RAM health monitoring.
+- Internet Plans: Configurable duration, pricing, and assigned bandwidth profiles.
+- Bandwidth Profiles: Speed queues, rate limiting, and burst parameters.
+- Vouchers: Batch voucher generation, exportable PDF/print vouchers, status tracking (Available, Used, Expired).
+- Active Sessions: Live session termination, MAC authorization list, session duration timers.
+- Audit Logs: Security events, admin sign-ins, router connection events, error trace logs.
+- Settings: Custom domain binding, router IP/API credentials, branding options, and system backup.

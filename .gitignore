@@ -1,3 +1,9 @@
+# Agents and Documentation ignore
+.agents/
+docs/
+uploads/
+/backend/uploads/
+
 # Dependency directories
 node_modules/
 jspm_packages/

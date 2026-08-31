@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2000/svg"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Captive Portal Landing Page -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- Admin Authentication -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/login</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Admin System Dashboard -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Internet Access Plans -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/plans</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Bandwidth Profiles -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/profiles</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Voucher Management -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/vouchers</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Active User Sessions -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/sessions</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>always</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- System Audit Logs -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/logs</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- Network & Custom Domain Settings -->
+  <url>
+    <loc>https://deroyalhotspot.name.ng/admin/settings</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

@@ -1,0 +1,43 @@
+# DeRoyal Hotspot OS Robots Instructions
+# Domain: https://deroyalhotspot.name.ng
+
+User-agent: *
+Allow: /
+Allow: /favicon.svg
+Allow: /sitemap.xml
+Allow: /llms.txt
+
+# Disallow private API endpoints & sensitive routes
+Disallow: /api/
+Disallow: /admin/
+Disallow: /admin/*
+
+# AI & LLM Search Engine Crawlers
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: CCBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Sitemap Location
+Sitemap: https://deroyalhotspot.name.ng/sitemap.xml

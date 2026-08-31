@@ -1,0 +1,14 @@
+# DeRoyal Hotspot OS
+
+> DeRoyal Hotspot OS is an enterprise captive portal & MikroTik bandwidth management operating system built for high-speed Wi-Fi hotspot access.
+
+## Primary Domain
+- Site URL: https://deroyalhotspot.name.ng/
+
+## Key Features & Information
+- [Captive Portal Access](https://deroyalhotspot.name.ng/): High-speed Wi-Fi authentication, auto device re-authentication, voucher activation, and bandwidth access plans.
+- [Enterprise Features](https://deroyalhotspot.name.ng/llms-full.txt): Complete operational documentation for network administrators, RADIUS integration, and MikroTik RouterOS API setup.
+
+## System Architecture
+- Frontend: Single Page Application with React, Tailwind CSS, Lucide icons, and responsive glassmorphism design.
+- Backend: Node.js / Express API powering voucher validation, bandwidth profile management, user sessions, and MikroTik router synchronization.
