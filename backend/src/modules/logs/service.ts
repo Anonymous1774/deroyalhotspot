@@ -7,6 +7,11 @@ interface LogsQueryFilters {
   limit?: number;
 }
 
+interface ClearLogsFilters {
+  olderThanDays?: number;
+  module?: string;
+}
+
 /**
  * Retrieves a paginated list of activity logs, filtered by module or search terms.
  */
@@ -66,5 +71,30 @@ export async function getLogsList(filters: LogsQueryFilters) {
     page,
     limit,
     totalPages: Math.ceil(total / limit)
+  };
+}
+
+/**
+ * Clears activity logs based on optional age threshold (in days) and module filter.
+ * If no filters are provided, all logs are deleted.
+ */
+export async function clearLogs(filters?: ClearLogsFilters) {
+  const whereClause: any = {};
+
+  if (filters?.olderThanDays && filters.olderThanDays > 0) {
+    const cutoffDate = new Date(Date.now() - filters.olderThanDays * 24 * 60 * 60 * 1000);
+    whereClause.createdAt = { lt: cutoffDate };
+  }
+
+  if (filters?.module && filters.module !== 'All') {
+    whereClause.module = filters.module;
+  }
+
+  const result = await prisma.activityLog.deleteMany({
+    where: whereClause
+  });
+
+  return {
+    count: result.count
   };
 }

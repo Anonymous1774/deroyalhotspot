@@ -67,3 +67,38 @@ export async function disconnect(req: Request, res: Response, next: NextFunction
     next(error);
   }
 }
+
+/**
+ * Controller to purge historical offline/expired/disconnected user sessions.
+ */
+export async function purge(req: Request, res: Response, next: NextFunction) {
+  try {
+    const olderThanDays = req.body.olderThanDays !== undefined
+      ? Number(req.body.olderThanDays)
+      : (req.query.olderThanDays !== undefined ? Number(req.query.olderThanDays) : undefined);
+
+    const result = await service.purgeOldSessions(olderThanDays);
+
+    // Audit log
+    await prisma.activityLog.create({
+      data: {
+        adminId: req.admin?.id || null,
+        action: 'Sessions Purged',
+        module: 'ROUTER',
+        description: `Purged ${result.count} historical offline/expired/disconnected hotspot session record(s)${olderThanDays ? ` older than ${olderThanDays} days` : ''}.`,
+        ipAddress: req.ip || null
+      }
+    }).catch((e) => console.error('Failed to log purgeSessions audit event:', e));
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.count} old session(s) purged successfully.`,
+      data: {
+        count: result.count
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}

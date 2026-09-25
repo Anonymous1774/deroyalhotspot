@@ -113,3 +113,28 @@ export async function disconnectUser(username: string, explicitRouterId?: string
 
   return updatedSession;
 }
+
+/**
+ * Purges offline, expired, or disconnected sessions older than specified days.
+ * If olderThanDays is omitted or <= 0, purges all non-ONLINE sessions.
+ */
+export async function purgeOldSessions(olderThanDays?: number) {
+  const whereClause: any = {
+    status: {
+      in: ['OFFLINE', 'EXPIRED', 'DISCONNECTED']
+    }
+  };
+
+  if (olderThanDays && olderThanDays > 0) {
+    const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    whereClause.createdAt = { lt: cutoffDate };
+  }
+
+  const result = await prisma.hotspotSession.deleteMany({
+    where: whereClause
+  });
+
+  return {
+    count: result.count
+  };
+}

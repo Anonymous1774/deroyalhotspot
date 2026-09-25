@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { list } from './controller';
+import { list, clear } from './controller';
 import { authenticate } from '../../middleware/auth';
 
 const router = Router();
@@ -8,5 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', list);
+router.delete('/', clear);
+router.delete('/clear', clear);
 
 export default router;

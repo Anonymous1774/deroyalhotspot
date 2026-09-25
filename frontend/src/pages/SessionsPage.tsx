@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, RefreshCw, Smartphone, Globe, Server } from 'lucide-react';
+import { LogOut, RefreshCw, Smartphone, Globe, Server, Trash2, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { HotspotSession, RouterItem } from '../types';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { SEOHead } from '../components/SEOHead';
 
@@ -12,6 +13,12 @@ export const SessionsPage: React.FC = () => {
   const [routers, setRouters] = useState<RouterItem[]>([]);
   const [routerFilter, setRouterFilter] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Purge modal states
+  const [purgeModalOpen, setPurgeModalOpen] = useState(false);
+  const [purgeMode, setPurgeMode] = useState<'ALL_OLD' | 'OLDER_THAN'>('OLDER_THAN');
+  const [olderThanDays, setOlderThanDays] = useState<number>(30);
+  const [purging, setPurging] = useState(false);
 
   const { showToast } = useToast();
 
@@ -65,6 +72,30 @@ export const SessionsPage: React.FC = () => {
     }
   };
 
+  const handleConfirmPurgeSessions = async () => {
+    setPurging(true);
+    try {
+      const payload: any = {};
+      if (purgeMode === 'OLDER_THAN') {
+        payload.olderThanDays = Number(olderThanDays);
+      }
+
+      const res = await api.delete('/hotspot/sessions/purge', { data: payload });
+
+      if (res.data && res.data.success) {
+        const count = res.data.data?.count ?? 0;
+        showToast('Sessions Purged', `Successfully purged ${count} historical session record(s).`, 'success');
+        setPurgeModalOpen(false);
+        fetchSessions();
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast('Purge Failed', err.response?.data?.message || 'Failed to purge old sessions.', 'error');
+    } finally {
+      setPurging(false);
+    }
+  };
+
   const getSessionBadge = (status: string) => {
     switch (status) {
       case 'ONLINE': return <Badge variant="success">ONLINE</Badge>;
@@ -106,11 +137,19 @@ export const SessionsPage: React.FC = () => {
           </select>
 
           <button
+            onClick={() => setPurgeModalOpen(true)}
+            className="min-h-[44px] px-3.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+          >
+            <Trash2 size={15} />
+            <span>Purge Old Sessions</span>
+          </button>
+
+          <button
             onClick={fetchSessions}
             className="min-h-[44px] px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>Refresh Sessions</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -191,6 +230,85 @@ export const SessionsPage: React.FC = () => {
           </table>
         </div>
       </Card>
+
+      {/* Purge Old Sessions Modal */}
+      <Modal
+        isOpen={purgeModalOpen}
+        onClose={() => setPurgeModalOpen(false)}
+        title="Purge Historical Sessions"
+      >
+        <div className="space-y-4 text-sm text-slate-300">
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 flex items-start gap-2.5">
+            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block">Safety Notice</span>
+              This action only purges historical offline, expired, or disconnected session records. Active <strong>ONLINE</strong> connected users will <strong>NEVER</strong> be interrupted or disconnected.
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-slate-800/40 border border-slate-800 hover:border-slate-700 transition-colors">
+              <input
+                type="radio"
+                name="purgeMode"
+                value="OLDER_THAN"
+                checked={purgeMode === 'OLDER_THAN'}
+                onChange={() => setPurgeMode('OLDER_THAN')}
+                className="w-4 h-4 text-blue-600 bg-slate-900 border-slate-700 focus:ring-blue-500"
+              />
+              <div className="flex-1 flex items-center justify-between gap-2">
+                <span className="font-semibold text-white">Purge sessions older than:</span>
+                <select
+                  value={olderThanDays}
+                  onChange={(e) => setOlderThanDays(Number(e.target.value))}
+                  disabled={purgeMode !== 'OLDER_THAN'}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <option value={7}>7 Days</option>
+                  <option value={14}>14 Days</option>
+                  <option value={30}>30 Days</option>
+                  <option value={60}>60 Days</option>
+                  <option value={90}>90 Days</option>
+                </select>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-slate-800/40 border border-slate-800 hover:border-slate-700 transition-colors">
+              <input
+                type="radio"
+                name="purgeMode"
+                value="ALL_OLD"
+                checked={purgeMode === 'ALL_OLD'}
+                onChange={() => setPurgeMode('ALL_OLD')}
+                className="w-4 h-4 text-amber-600 bg-slate-900 border-slate-700 focus:ring-amber-500"
+              />
+              <div>
+                <span className="font-bold text-amber-400 block">Purge ALL Historical Sessions</span>
+                <span className="text-xs text-slate-400">Permanently remove all offline, disconnected, and expired session logs</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setPurgeModalOpen(false)}
+              className="min-h-[44px] px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmPurgeSessions}
+              disabled={purging}
+              className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-amber-600/30 flex items-center gap-1.5 transition-all"
+            >
+              {purging && <RefreshCw size={14} className="animate-spin" />}
+              <span>{purging ? 'Purging...' : 'Confirm Purge'}</span>
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
