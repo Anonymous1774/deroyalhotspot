@@ -6,6 +6,30 @@ export interface AdminUser {
   lastLogin: string | null;
 }
 
+export interface RouterItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  host: string;
+  apiPort: number;
+  apiSsl: boolean;
+  username: string;
+  routerIdentity?: string | null;
+  status: 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'UNKNOWN';
+  enabled: boolean;
+  lastSeenAt?: string | null;
+  lastHealthCheckAt?: string | null;
+  lastConnected?: string | null;
+  latencyMs?: number | null;
+  lastError?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    vouchers?: number;
+    hotspotSessions?: number;
+  };
+}
+
 export interface BandwidthProfile {
   id: string;
   name: string;
@@ -35,6 +59,13 @@ export interface Voucher {
   id: string;
   code: string;
   planId: string;
+  routerId?: string | null;
+  router?: {
+    id: string;
+    name: string;
+    host: string;
+    status?: string;
+  } | null;
   plan?: {
     id: string;
     name: string;
@@ -61,6 +92,13 @@ export interface Voucher {
 export interface HotspotSession {
   id: string;
   voucherId: string;
+  routerId?: string | null;
+  router?: {
+    id: string;
+    name: string;
+    host: string;
+    status?: string;
+  } | null;
   username: string;
   ipAddress: string;
   macAddress: string;
@@ -78,6 +116,9 @@ export interface HotspotSession {
 }
 
 export interface RouterTelemetry {
+  id?: string;
+  name?: string;
+  host?: string;
   status: 'ONLINE' | 'OFFLINE' | 'SIMULATED';
   identity?: string;
   version?: string;
@@ -88,7 +129,9 @@ export interface RouterTelemetry {
   memoryUsage?: number;
   connectedUsers?: number;
   hotspotStatus?: string;
+  latencyMs?: number;
   simulationReason?: string;
+  error?: string;
 }
 
 export interface DashboardStats {
@@ -96,8 +139,12 @@ export interface DashboardStats {
   activeVouchersCount: number;
   unusedVouchersCount: number;
   onlineUsersCount: number;
-  recentActivity: ActivityLog[];
   totalIncome: number;
+  totalRouters?: number;
+  onlineRoutersCount?: number;
+  offlineRoutersCount?: number;
+  routersSummary?: RouterItem[];
+  recentActivity: ActivityLog[];
 }
 
 export interface ActivityLog {

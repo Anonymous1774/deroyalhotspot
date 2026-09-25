@@ -53,10 +53,11 @@ export async function generate(req: Request, res: Response, next: NextFunction) 
  */
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
-    const { status, planId, search, page, limit } = req.query;
+    const { status, planId, routerId, search, page, limit } = req.query;
     const result = await service.getVouchersList({
       status: status ? String(status) : undefined,
       planId: planId ? String(planId) : undefined,
+      routerId: routerId ? String(routerId) : undefined,
       search: search ? String(search) : undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined

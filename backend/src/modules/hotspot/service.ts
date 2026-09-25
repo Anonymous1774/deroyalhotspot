@@ -5,19 +5,25 @@ import { disconnectHotspotSession } from '../../services/mikrotik/mikrotik-clien
 interface SessionsQueryFilters {
   page?: number;
   limit?: number;
+  routerId?: string;
 }
 
 /**
- * Retrieves all active customer hotspot sessions (status: ONLINE).
+ * Retrieves all active customer hotspot sessions (status: ONLINE), with optional router filter.
  */
 export async function getActiveSessions(filters: SessionsQueryFilters) {
   const page = Number(filters.page) || 1;
   const limit = Number(filters.limit) || 50;
   const skip = (page - 1) * limit;
 
+  const whereClause: any = { status: 'ONLINE' };
+  if (filters.routerId && filters.routerId !== 'All') {
+    whereClause.routerId = filters.routerId;
+  }
+
   const [sessions, total] = await Promise.all([
     prisma.hotspotSession.findMany({
-      where: { status: 'ONLINE' },
+      where: whereClause,
       include: {
         voucher: {
           include: {
@@ -27,6 +33,14 @@ export async function getActiveSessions(filters: SessionsQueryFilters) {
               }
             }
           }
+        },
+        router: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+            status: true
+          }
         }
       },
       orderBy: { loginTime: 'desc' },
@@ -34,7 +48,7 @@ export async function getActiveSessions(filters: SessionsQueryFilters) {
       take: limit
     }),
     prisma.hotspotSession.count({
-      where: { status: 'ONLINE' }
+      where: whereClause
     })
   ]);
 
@@ -48,27 +62,33 @@ export async function getActiveSessions(filters: SessionsQueryFilters) {
 }
 
 /**
- * Administrative disconnect for a user session.
- * Updates session in database to DISCONNECTED, logs out, and tracks duration.
+ * Administrative disconnect for a user session on target router.
  */
-export async function disconnectUser(username: string) {
-  // Find first active session
+export async function disconnectUser(username: string, explicitRouterId?: string) {
+  const normalizedUsername = username.trim();
+
+  // Find active session
+  const whereClause: any = {
+    username: normalizedUsername,
+    status: 'ONLINE'
+  };
+  if (explicitRouterId) {
+    whereClause.routerId = explicitRouterId;
+  }
+
   const activeSession = await prisma.hotspotSession.findFirst({
-    where: {
-      username: username.trim(),
-      status: 'ONLINE'
-    }
+    where: whereClause
   });
 
   if (!activeSession) {
     throw new AppError(`No active online session found for user '${username}'.`, 404);
   }
 
-  const normalizedUsername = username.trim();
+  const targetRouterId = activeSession.routerId || explicitRouterId || undefined;
 
-  // Terminate session on MikroTik first
+  // Terminate session on target MikroTik router
   try {
-    await disconnectHotspotSession(normalizedUsername);
+    await disconnectHotspotSession(targetRouterId, normalizedUsername);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Router communication failed';
     throw new AppError(`Unable to disconnect user on router: ${message}`, 503);
@@ -90,9 +110,6 @@ export async function disconnectUser(username: string) {
       sessionDuration
     }
   });
-
-  // Note: We can also update the voucher status to EXPIRED if duration or plan limits are exceeded,
-  // but for now, we just close the active online session.
 
   return updatedSession;
 }

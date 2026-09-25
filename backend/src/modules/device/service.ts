@@ -93,9 +93,11 @@ export async function reauthenticateDevice(mac: string, ip: string) {
     throw new AppError('The voucher code linked to this device has expired.', 400);
   }
 
+  const targetRouterId = device.voucher.routerId || undefined;
+
   // 2. Ensure router is reachable
   try {
-    await ensureRouterReachable();
+    await ensureRouterReachable(targetRouterId);
   } catch (err) {
     await logDeviceActivity('Automatic Login Failed', `Auto-login failed for device MAC '${targetMac}' because RouterOS is unreachable.`, ip);
     throw new AppError('Hotspot router is currently offline. Please try again in a moment.', 503);
@@ -104,7 +106,7 @@ export async function reauthenticateDevice(mac: string, ip: string) {
   // 3. Trigger active login on router
   const username = device.voucher.code;
   try {
-    await loginActiveHotspotUser(username, ip);
+    await loginActiveHotspotUser(targetRouterId, username, ip);
   } catch (err: any) {
     await logDeviceActivity('Automatic Login Failed', `Auto-login failed for device MAC '${targetMac}' (User: ${username}) on IP '${ip}'. Error: ${err.message || err}`, ip);
     throw new AppError(`Router login failed: ${err.message || err}`, 502);

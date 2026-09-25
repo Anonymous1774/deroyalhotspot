@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Ban, AlertCircle } from 'lucide-react';
 import api from '../services/api';
-import { Voucher, Plan } from '../types';
+import { Voucher, Plan, RouterItem } from '../types';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
@@ -11,11 +11,13 @@ import { SEOHead } from '../components/SEOHead';
 export const VouchersPage: React.FC = () => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [routers, setRouters] = useState<RouterItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+  const [routerFilter, setRouterFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -26,6 +28,7 @@ export const VouchersPage: React.FC = () => {
 
   // Generator form
   const [genPlanId, setGenPlanId] = useState('');
+  const [genRouterId, setGenRouterId] = useState('');
   const [genCount, setGenCount] = useState('10');
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,6 +40,7 @@ export const VouchersPage: React.FC = () => {
       const params: any = { page, limit: 15 };
       if (statusFilter) params.status = statusFilter;
       if (planFilter) params.planId = planFilter;
+      if (routerFilter) params.routerId = routerFilter;
       if (searchQuery) params.search = searchQuery;
 
       const res = await api.get('/vouchers', { params });
@@ -52,17 +56,25 @@ export const VouchersPage: React.FC = () => {
     }
   };
 
-  const fetchPlans = async () => {
+  const fetchPlansAndRouters = async () => {
     try {
-      const res = await api.get('/plans');
-      if (res.data && res.data.success) {
-        const fetchedPlans = Array.isArray(res.data.data)
-          ? res.data.data
-          : res.data.data?.plans || [];
+      const [plansRes, routersRes] = await Promise.all([
+        api.get('/plans'),
+        api.get('/routers')
+      ]);
+
+      if (plansRes.data && plansRes.data.success) {
+        const fetchedPlans = Array.isArray(plansRes.data.data)
+          ? plansRes.data.data
+          : plansRes.data.data?.plans || [];
         setPlans(fetchedPlans);
         if (fetchedPlans.length > 0 && !genPlanId) {
           setGenPlanId(fetchedPlans[0].id);
         }
+      }
+
+      if (routersRes.data && routersRes.data.success) {
+        setRouters(routersRes.data.data || []);
       }
     } catch (e) {
       console.error(e);
@@ -70,12 +82,12 @@ export const VouchersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPlans();
+    fetchPlansAndRouters();
   }, []);
 
   useEffect(() => {
     fetchVouchers();
-  }, [page, statusFilter, planFilter, searchQuery]);
+  }, [page, statusFilter, planFilter, routerFilter, searchQuery]);
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +95,7 @@ export const VouchersPage: React.FC = () => {
     try {
       const res = await api.post('/vouchers/generate', {
         planId: genPlanId,
+        routerId: genRouterId || undefined,
         count: parseInt(genCount, 10)
       });
 
@@ -220,6 +233,17 @@ export const VouchersPage: React.FC = () => {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+
+          <select
+            value={routerFilter}
+            onChange={(e) => setRouterFilter(e.target.value)}
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-700 dark:text-slate-300"
+          >
+            <option value="">All Routers</option>
+            {routers.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
         </div>
       </Card>
 
@@ -324,6 +348,22 @@ export const VouchersPage: React.FC = () => {
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} (₦{p.price} - {p.duration} {p.durationUnit})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Target Router Gateway (Optional / Any)</label>
+            <select
+              value={genRouterId}
+              onChange={(e) => setGenRouterId(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
+            >
+              <option value="">Any / All Routers (Default)</option>
+              {routers.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.host})
                 </option>
               ))}
             </select>

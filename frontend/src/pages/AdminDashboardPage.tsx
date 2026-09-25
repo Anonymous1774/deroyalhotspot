@@ -24,13 +24,17 @@ export const AdminDashboardPage: React.FC = () => {
   const [loadingStats, setLoadingStats] = useState(true);
   const [routerStatus, setRouterStatus] = useState<RouterTelemetry | null>(null);
   const [loadingRouter, setLoadingRouter] = useState(true);
+  const [selectedRouterId, setSelectedRouterId] = useState<string>('');
 
   const { showToast } = useToast();
 
   const fetchDashboardData = async () => {
     setLoadingStats(true);
     try {
-      const res = await api.get('/dashboard/stats');
+      const params: any = {};
+      if (selectedRouterId) params.routerId = selectedRouterId;
+
+      const res = await api.get('/dashboard/stats', { params });
       if (res.data && res.data.success) {
         setStats(res.data.data);
       }
@@ -55,7 +59,6 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-
   const handleRefresh = async () => {
     await Promise.all([fetchDashboardData(), fetchRouterStatus()]);
     showToast('Telemetry Updated', 'Dashboard analytics & router status refreshed.', 'info');
@@ -63,6 +66,9 @@ export const AdminDashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, [selectedRouterId]);
+
+  useEffect(() => {
     fetchRouterStatus();
   }, []);
 
@@ -142,7 +148,20 @@ export const AdminDashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {stats?.routersSummary && stats.routersSummary.length > 0 && (
+            <select
+              value={selectedRouterId}
+              onChange={(e) => setSelectedRouterId(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-700 dark:text-slate-300 font-semibold"
+            >
+              <option value="">All Router Gateways</option>
+              {stats.routersSummary.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          )}
+
           {getStatusBadge()}
           <button
             onClick={handleRefresh}

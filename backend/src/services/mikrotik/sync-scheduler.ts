@@ -1,5 +1,5 @@
 import prisma from '../../lib/prisma';
-import { getRouterHealth, removeHotspotUser, disconnectHotspotSession } from './mikrotik-client';
+import { getSingleRouterHealth, removeHotspotUser, disconnectHotspotSession } from './mikrotik-client';
 
 let syncInterval: NodeJS.Timeout | null = null;
 
@@ -9,14 +9,12 @@ let syncInterval: NodeJS.Timeout | null = null;
 export async function startSyncScheduler() {
   if (syncInterval) return;
 
-  console.log('[Scheduler] Initializing background RouterOS & Session synchronization...');
+  console.log('[Scheduler] Initializing background Multi-RouterOS & Session synchronization...');
 
-  // Perform initial synchronization immediately on boot
   await performSynchronization().catch((err) => {
     console.error('[Scheduler] Initial synchronization failed:', err);
   });
 
-  // Schedule periodic synchronization every 60 seconds
   syncInterval = setInterval(async () => {
     try {
       await performSynchronization();
@@ -40,14 +38,13 @@ export function stopSyncScheduler() {
 /**
  * Synchronization cycle:
  * 1. Scans active vouchers past their expiration time, sets their status to EXPIRED.
- * 2. Scans corresponding online hotspot sessions, sets their status to DISCONNECTED.
- * 3. Logs automatic voucher expiration events in the audit log.
- * 4. Polling router health telemetry to keep connection statuses up-to-date.
+ * 2. Terminates user accounts and active sessions on target routers.
+ * 3. Polls telemetry across all active routers independently.
  */
 async function performSynchronization() {
   const now = new Date();
 
-  // 1. Expire Active Vouchers that are past their expiresAt timestamp
+  // 1. Expire Active Vouchers past expiration date
   const expiredVouchers = await prisma.voucher.findMany({
     where: {
       status: 'ACTIVE',
@@ -62,24 +59,25 @@ async function performSynchronization() {
 
     for (const voucher of expiredVouchers) {
       const disconnectTime = voucher.expiresAt || now;
+      const targetRouterId = voucher.routerId || undefined;
 
-      // 1. Terminate user account on the router so they can't reconnect
-      await removeHotspotUser(voucher.code).catch((err) => {
-        console.warn(`[Scheduler Warning] Failed to delete hotspot user '${voucher.code}' from router on expiration:`, err);
+      // 1. Terminate user account on target router
+      await removeHotspotUser(targetRouterId, voucher.code).catch((err) => {
+        console.warn(`[Scheduler Warning] Failed to delete hotspot user '${voucher.code}' from router '${targetRouterId}':`, err);
       });
 
-      // 2. Disconnect active session immediately to cut off internet
-      await disconnectHotspotSession(voucher.code).catch((err) => {
-        console.warn(`[Scheduler Warning] Failed to disconnect active session for '${voucher.code}' from router on expiration:`, err);
+      // 2. Disconnect active session on target router
+      await disconnectHotspotSession(targetRouterId, voucher.code).catch((err) => {
+        console.warn(`[Scheduler Warning] Failed to disconnect active session for '${voucher.code}' from router '${targetRouterId}':`, err);
       });
 
-      // 3. Update voucher status to EXPIRED in database
+      // 3. Update voucher status
       await prisma.voucher.update({
         where: { id: voucher.id },
         data: { status: 'EXPIRED' }
       });
 
-      // 4. Update corresponding online sessions to DISCONNECTED in database
+      // 4. Update online sessions
       await prisma.hotspotSession.updateMany({
         where: {
           voucherId: voucher.id,
@@ -91,7 +89,7 @@ async function performSynchronization() {
         }
       });
 
-      // 5. Log system audit log for automatic expiration
+      // 5. Audit log
       await prisma.activityLog.create({
         data: {
           adminId: null,
@@ -104,6 +102,15 @@ async function performSynchronization() {
     }
   }
 
-  // 2. Poll Router Health telemetry (automatically updates router status between ONLINE/OFFLINE in database)
-  await getRouterHealth();
+  // 2. Poll health across all registered routers independently
+  const routers = await prisma.router.findMany({
+    where: { deletedAt: null, enabled: true },
+    select: { id: true, name: true }
+  });
+
+  for (const router of routers) {
+    await getSingleRouterHealth(router.id).catch((err) => {
+      console.warn(`[Scheduler Warning] Health check failed for router '${router.name}':`, err);
+    });
+  }
 }

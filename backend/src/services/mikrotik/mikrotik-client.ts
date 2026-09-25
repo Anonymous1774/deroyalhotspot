@@ -1,15 +1,19 @@
 import { RouterOSClient } from 'routeros-client';
 import prisma from '../../lib/prisma';
-import { decrypt } from '../../utils/crypto';
+import { decrypt, encrypt } from '../../utils/crypto';
 
-interface RouterConfig {
+export interface RouterConfig {
+  id?: string;
+  routerDbId?: string;
+  name?: string;
   host?: string;
   port?: number;
+  useSsl?: boolean;
   username?: string;
   password?: string;
 }
 
-type RouterApi = any;
+export type RouterApi = any;
 
 const MAX_RETRIES = 3;
 
@@ -18,9 +22,80 @@ function isSimulationMode(): boolean {
 }
 
 /**
+ * Ensures a default router exists in database if none exists.
+ * Preserves 100% backward compatibility for single-router setups.
+ */
+export async function getOrCreateDefaultRouter() {
+  let router = await prisma.router.findFirst({
+    where: { deletedAt: null },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  if (!router) {
+    const defaultHost = process.env.MIKROTIK_HOST || '10.10.10.2';
+    const defaultPort = parseInt(process.env.MIKROTIK_PORT || '8728', 10);
+    const defaultUser = process.env.MIKROTIK_USERNAME || 'admin';
+    const defaultPass = process.env.MIKROTIK_PASSWORD || 'DeRoyal2024';
+
+    router = await prisma.router.create({
+      data: {
+        name: 'Primary MikroTik Router',
+        description: 'Default system router created automatically from environment settings.',
+        host: defaultHost,
+        apiPort: defaultPort,
+        username: defaultUser,
+        encryptedPassword: encrypt(defaultPass),
+        status: 'UNKNOWN',
+        enabled: true
+      }
+    });
+    console.log(`[Multi-Router] Default router initialized in database (ID: ${router.id}).`);
+  }
+
+  return router;
+}
+
+/**
+ * Resolves a router configuration by ID or retrieves the default active router.
+ */
+export async function getRouterConfig(routerId?: string): Promise<RouterConfig & { routerDbId?: string }> {
+  let router = null;
+
+  if (routerId) {
+    router = await prisma.router.findFirst({
+      where: { id: routerId, deletedAt: null }
+    });
+  }
+
+  if (!router) {
+    router = await getOrCreateDefaultRouter();
+  }
+
+  return {
+    routerDbId: router.id,
+    id: router.id,
+    name: router.name,
+    host: router.host,
+    port: router.apiPort,
+    useSsl: router.apiSsl,
+    username: router.username,
+    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : ''
+  };
+}
+
+function createRouterClient(config: RouterConfig): RouterOSClient {
+  return new RouterOSClient({
+    host: config.host || '',
+    port: config.port || 8728,
+    user: config.username || 'admin',
+    password: config.password || '',
+    timeout: parseInt(process.env.MIKROTIK_TIMEOUT || '5000', 10),
+    tls: config.useSsl || false
+  } as any);
+}
+
+/**
  * Executes a RouterOS API query wrapping it in a Promise.race timeout.
- * If the query hangs (a known bug in node-routeros under RouterOS v7 for empty tables),
- * the timeout resolves it to an empty array fallback instead of hanging the HTTP request.
  */
 async function safeWrite(api: any, command: string[], timeoutMs: number = 3000): Promise<any[]> {
   try {
@@ -37,62 +112,29 @@ async function safeWrite(api: any, command: string[], timeoutMs: number = 3000):
 }
 
 /**
- * Loads router configurations from database and decrypts credentials symmetrically.
+ * Opens a RouterOS API connection for a specific router (by ID or explicit config),
+ * executes the callback function, and closes the connection cleanly.
  */
-/**
- * Loads router configurations directly from the .env environment variables.
- */
-async function getActiveRouterConfig(): Promise<RouterConfig | null> {
-  const router = await prisma.router.findFirst();
-  
-  const fallback = {
-    host: process.env.MIKROTIK_HOST || '10.10.10.2',
-    port: parseInt(process.env.MIKROTIK_PORT || '8728', 10),
-    username: process.env.MIKROTIK_USERNAME || 'admin',
-    password: process.env.MIKROTIK_PASSWORD || 'DeRoyal2024'
-  };
-
-  if (!router) return fallback;
-
-  return {
-    host: router.host || fallback.host,
-    port: router.apiPort || fallback.port,
-    username: router.username || fallback.username,
-    password: router.encryptedPassword ? decrypt(router.encryptedPassword) : fallback.password
-  };
-}
-
-function createRouterClient(config: RouterConfig): RouterOSClient {
-  return new RouterOSClient({
-    host: config.host || '',
-    port: config.port || 8728,
-    user: config.username || 'admin',
-    password: config.password || '',
-    timeout: parseInt(process.env.MIKROTIK_TIMEOUT || '5000', 10)
-  });
-}
-
-/**
- * Opens a RouterOS API connection, runs the callback, and always closes the socket.
- * Retries up to MAX_RETRIES times on transient connection failures.
- */
-async function withRouterConnection<T>(
-  fn: (api: RouterApi) => Promise<T>,
-  config?: RouterConfig
+export async function withRouterConnection<T>(
+  routerIdOrConfig: string | RouterConfig | undefined,
+  fn: (api: RouterApi) => Promise<T>
 ): Promise<T> {
-  const activeConfig = config || await getActiveRouterConfig();
+  const activeConfig = typeof routerIdOrConfig === 'object' 
+    ? routerIdOrConfig 
+    : await getRouterConfig(routerIdOrConfig);
+
   if (!activeConfig || !activeConfig.host) {
     throw new Error('No router configuration found.');
   }
 
+  const startTime = Date.now();
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const client = createRouterClient(activeConfig);
     
-    // Catch asynchronous socket errors to prevent node process from crashing
     (client as any).on('error', (err: any) => {
-      console.warn(`[RouterOS Socket Error - Attempt ${attempt}]:`, err.message || err);
+      console.warn(`[RouterOS Socket Error - ${activeConfig.name || activeConfig.host} - Attempt ${attempt}]:`, err.message || err);
     });
 
     try {
@@ -102,19 +144,53 @@ async function withRouterConnection<T>(
           setTimeout(() => reject(new Error('RouterOS API connection timeout (3s)')), 3000)
         )
       ]);
+
       const result = await fn(api);
       await client.close();
+
+      const latencyMs = Date.now() - startTime;
+
+      // Update router health telemetry in database if router ID is known
+      if (activeConfig.routerDbId || activeConfig.id) {
+        const targetId = activeConfig.routerDbId || activeConfig.id;
+        await prisma.router.update({
+          where: { id: targetId },
+          data: {
+            status: 'ONLINE',
+            lastConnected: new Date(),
+            lastSeenAt: new Date(),
+            lastHealthCheckAt: new Date(),
+            latencyMs,
+            lastError: null
+          }
+        }).catch((e) => console.error('Failed to update router state on success:', e));
+      }
+
       return result;
     } catch (error: unknown) {
       lastError = error instanceof Error ? error : new Error(String(error));
       await client.close().catch(() => {});
+
       if (attempt < MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
       }
     }
   }
 
-  throw lastError || new Error('Failed to connect to MikroTik router.');
+  // Update DB status to OFFLINE if persistent failure occurs
+  if (activeConfig.routerDbId || activeConfig.id) {
+    const targetId = activeConfig.routerDbId || activeConfig.id;
+    await prisma.router.update({
+      where: { id: targetId },
+      data: {
+        status: 'OFFLINE',
+        lastHealthCheckAt: new Date(),
+        lastError: lastError?.message || 'Connection failed'
+      }
+    }).catch(() => {});
+  }
+
+  throw lastError || new Error(`Failed to connect to router ${activeConfig.name || activeConfig.host}.`);
 }
 
 /**
@@ -141,49 +217,110 @@ async function logRouterEvent(action: string, description: string): Promise<void
 }
 
 /**
- * Verifies the router is reachable before voucher activation proceeds.
- * Skipped when MIKROTIK_SIMULATION_MODE=true.
+ * Tests socket connection to a router.
  */
-export async function ensureRouterReachable(): Promise<void> {
-  if (isSimulationMode()) return;
-  await testRouterConnection();
-}
-
-/**
- * Tests MikroTik RouterOS API socket connection.
- */
-export async function testRouterConnection(config?: RouterConfig): Promise<boolean> {
-  if (isSimulationMode()) return true;
-
-  await withRouterConnection(async () => true, config);
-  return true;
-}
-
-/**
- * Creates a hotspot user on MikroTik for an activated voucher.
- * Username and password are both the voucher code per integration spec.
- */
-export async function createHotspotUser(params: {
-  username: string;
-  password: string;
-  profile: string;
-  limitUptime: string;
-  comment?: string;
-  ip?: string;
-  rateLimit?: string;
-}): Promise<void> {
+export async function testRouterConnection(routerIdOrConfig?: string | RouterConfig): Promise<{
+  success: boolean;
+  status: string;
+  latencyMs: number;
+  identity?: string;
+  version?: string;
+  error?: string;
+}> {
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] createHotspotUser: ${params.username} (${params.profile}, ${params.limitUptime})`);
+    return {
+      success: true,
+      status: 'ONLINE',
+      latencyMs: 12,
+      identity: 'DeRoyal-Router-Simulated',
+      version: 'RouterOS v7.12.1'
+    };
+  }
+
+  const startTime = Date.now();
+  try {
+    const info = await withRouterConnection(routerIdOrConfig, async (api) => {
+      const [identityRes, resourceRes] = await Promise.all([
+        safeWrite(api, ['/system/identity/print']),
+        safeWrite(api, ['/system/resource/print'])
+      ]);
+      const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
+      const version = resourceRes[0]?.version || 'v7';
+      return { identity, version };
+    });
+
+    const latencyMs = Date.now() - startTime;
+
+    if (typeof routerIdOrConfig === 'string') {
+      await prisma.router.update({
+        where: { id: routerIdOrConfig },
+        data: {
+          routerIdentity: info.identity,
+          status: 'ONLINE',
+          lastSeenAt: new Date(),
+          lastHealthCheckAt: new Date(),
+          latencyMs,
+          lastError: null
+        }
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      status: 'ONLINE',
+      latencyMs,
+      identity: info.identity,
+      version: info.version
+    };
+  } catch (error: any) {
+    const latencyMs = Date.now() - startTime;
+    return {
+      success: false,
+      status: 'OFFLINE',
+      latencyMs,
+      error: error.message || 'Connection failed'
+    };
+  }
+}
+
+/**
+ * Verifies specific router or default router is reachable.
+ */
+export async function ensureRouterReachable(routerId?: string): Promise<void> {
+  if (isSimulationMode()) return;
+  const res = await testRouterConnection(routerId);
+  if (!res.success) {
+    throw new Error(res.error || 'Router unreachable');
+  }
+}
+
+/**
+ * Creates a hotspot user on a specific MikroTik router.
+ */
+export async function createHotspotUser(
+  routerId: string | undefined,
+  params: {
+    username: string;
+    password: string;
+    profile: string;
+    limitUptime: string;
+    comment?: string;
+    ip?: string;
+    rateLimit?: string;
+  }
+): Promise<void> {
+  if (isSimulationMode()) {
+    console.log(`[SIMULATION] createHotspotUser on router ${routerId || 'default'}: ${params.username}`);
     return;
   }
 
-  await withRouterConnection(async (api) => {
-    // 1. Auto-create User Profile on router if it doesn't exist yet
+  await withRouterConnection(routerId, async (api) => {
+    // 1. Auto-create User Profile on router if missing
     const allProfiles = await safeWrite(api, ['/ip/hotspot/user/profile/print']);
     const profileExists = allProfiles.some((p: any) => p.name === params.profile);
 
     if (!profileExists) {
-      console.log(`[RouterOS API] User Profile '${params.profile}' not found on router. Creating it automatically...`);
+      console.log(`[RouterOS API] Creating profile '${params.profile}' on router ${routerId || 'default'}...`);
       const createProfileCmd = [
         '/ip/hotspot/user/profile/add',
         `=name=${params.profile}`,
@@ -197,7 +334,7 @@ export async function createHotspotUser(params: {
       await safeWrite(api, createProfileCmd);
     }
 
-    // 2. Print the user list and filter in JS to prevent RouterOS v7 !empty queries bug
+    // 2. Check if user already exists
     const allUsers = await safeWrite(api, ['/ip/hotspot/user/print']);
     const existing = allUsers.filter((u: any) => u.name === params.username);
     
@@ -205,7 +342,7 @@ export async function createHotspotUser(params: {
       throw new Error(`Hotspot user '${params.username}' already exists on router.`);
     }
 
-    // 3. Add hotspot user using raw array syntax
+    // 3. Add user
     await safeWrite(api, [
       '/ip/hotspot/user/add',
       `=name=${params.username}`,
@@ -215,38 +352,35 @@ export async function createHotspotUser(params: {
       `=comment=${params.comment || `DHOS voucher ${params.username}`}`
     ]);
 
-    // 4. If client IP is provided, trigger the server-side login immediately
+    // 4. Trigger direct login if client IP is active
     if (params.ip && params.ip !== '0.0.0.0' && !params.ip.startsWith('10.10.10.')) {
-      console.log(`[RouterOS API] Logging in client IP ${params.ip} for user ${params.username}...`);
       await safeWrite(api, [
         '/ip/hotspot/active/login',
         `=ip=${params.ip}`,
         `=user=${params.username}`,
         `=password=${params.password}`
       ]).catch((err) => {
-        console.warn(`[RouterOS API Warning] Direct login for IP ${params.ip} failed:`, err);
+        console.warn(`[RouterOS API Warning] Direct login failed for IP ${params.ip}:`, err);
       });
     }
   });
 
   await logRouterEvent(
     'User Created',
-    `Hotspot user '${params.username}' created with profile '${params.profile}' and limit '${params.limitUptime}'.`
+    `Hotspot user '${params.username}' created on router '${routerId || 'default'}'.`
   );
 }
 
 /**
- * Triggers a direct active login session for an existing hotspot user on MikroTik.
- * Used for session re-activation (welcome back / reconnection).
+ * Triggers direct login session on a specific router.
  */
-export async function loginActiveHotspotUser(username: string, ip: string): Promise<void> {
+export async function loginActiveHotspotUser(routerId: string | undefined, username: string, ip: string): Promise<void> {
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] loginActiveHotspotUser: ${username} on IP ${ip}`);
+    console.log(`[SIMULATION] loginActiveHotspotUser: ${username} on router ${routerId || 'default'}`);
     return;
   }
 
-  await withRouterConnection(async (api) => {
-    console.log(`[RouterOS API] Logging in client IP ${ip} for existing user ${username}...`);
+  await withRouterConnection(routerId, async (api) => {
     try {
       await safeWrite(api, [
         '/ip/hotspot/active/login',
@@ -256,26 +390,22 @@ export async function loginActiveHotspotUser(username: string, ip: string): Prom
       ]);
     } catch (err: any) {
       const errMsg = String(err.message || err).toLowerCase();
-      if (errMsg.includes('already') || errMsg.includes('active')) {
-        console.log(`[RouterOS API] User ${username} is already active/logged in. Ignoring error.`);
-        return;
-      }
+      if (errMsg.includes('already') || errMsg.includes('active')) return;
       throw err;
     }
   });
 }
 
 /**
- * Removes a hotspot user from MikroTik (used for rollback or cleanup).
+ * Removes a hotspot user from a specific router.
  */
-export async function removeHotspotUser(username: string): Promise<void> {
+export async function removeHotspotUser(routerId: string | undefined, username: string): Promise<void> {
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] removeHotspotUser: ${username}`);
+    console.log(`[SIMULATION] removeHotspotUser: ${username} on router ${routerId || 'default'}`);
     return;
   }
 
-  await withRouterConnection(async (api) => {
-    // Print all users and filter in JS to bypass empty query bugs
+  await withRouterConnection(routerId, async (api) => {
     const allUsers = await safeWrite(api, ['/ip/hotspot/user/print']);
     const users = allUsers.filter((u: any) => u.name === username);
     if (users.length === 0) return;
@@ -286,20 +416,19 @@ export async function removeHotspotUser(username: string): Promise<void> {
     }
   });
 
-  await logRouterEvent('User Removed', `Hotspot user '${username}' removed from router.`);
+  await logRouterEvent('User Removed', `Hotspot user '${username}' removed from router ${routerId || 'default'}.`);
 }
 
 /**
- * Terminates an active hotspot session on MikroTik for the given username.
+ * Terminates an active session on a specific router.
  */
-export async function disconnectHotspotSession(username: string): Promise<void> {
+export async function disconnectHotspotSession(routerId: string | undefined, username: string): Promise<void> {
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] disconnectHotspotSession: ${username}`);
+    console.log(`[SIMULATION] disconnectHotspotSession: ${username} on router ${routerId || 'default'}`);
     return;
   }
 
-  await withRouterConnection(async (api) => {
-    // Print all active sessions and filter in JS
+  await withRouterConnection(routerId, async (api) => {
     const activeSessions = await safeWrite(api, ['/ip/hotspot/active/print']);
     const userSessions = activeSessions.filter((s: any) => s.user === username);
     if (userSessions.length === 0) return;
@@ -314,28 +443,23 @@ export async function disconnectHotspotSession(username: string): Promise<void> 
 
   await logRouterEvent(
     'Session Disconnected',
-    `Hotspot session for user '${username}' terminated on router.`
+    `Hotspot session for '${username}' terminated on router ${routerId || 'default'}.`
   );
 }
 
 /**
- * Fetches real-time router status and health telemetry.
- * Falls back to Simulation Mode if connection throws.
+ * Fetches real-time router telemetry for a single router.
  */
-export async function getRouterHealth() {
-  const config = await getActiveRouterConfig();
-
-  if (!config || !config.host) {
-    return await getSimulatedHealth('Router configuration missing in database.');
-  }
+export async function getSingleRouterHealth(routerId?: string) {
+  const routerConfig = await getRouterConfig(routerId);
 
   if (isSimulationMode()) {
-    return await getSimulatedHealth('MIKROTIK_SIMULATION_MODE is enabled.');
+    return getSimulatedHealth(routerConfig.name || 'Simulated Router', 'Simulation Mode Enabled');
   }
 
+  const startTime = Date.now();
   try {
-    const health = await withRouterConnection(async (api) => {
-      // Gather stats from raw RouterOS API commands using array syntax
+    const health = await withRouterConnection(routerConfig, async (api) => {
       const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
         safeWrite(api, ['/system/identity/print']),
         safeWrite(api, ['/system/resource/print']),
@@ -343,7 +467,7 @@ export async function getRouterHealth() {
         safeWrite(api, ['/ip/hotspot/print'])
       ]);
 
-      const identity = identityRes[0]?.name || identityRes[0]?.identity || 'MikroTik';
+      const identity = identityRes[0]?.name || identityRes[0]?.identity || routerConfig.name || 'MikroTik';
       const resource = resourceRes[0] || {};
       const activeCount = activeRes.length || 0;
       const hotspotActive = hotspotRes.length > 0 ? 'active' : 'inactive';
@@ -359,6 +483,9 @@ export async function getRouterHealth() {
       const memUsagePercent = Math.round(((memTotalMB - memFreeMB) / memTotalMB) * 100) || 0;
 
       return {
+        id: routerConfig.id,
+        name: routerConfig.name,
+        host: routerConfig.host,
         status: 'ONLINE' as const,
         identity,
         version: `RouterOS v${version}`,
@@ -368,94 +495,72 @@ export async function getRouterHealth() {
         memoryFree: memFreeMB,
         memoryUsage: memUsagePercent,
         connectedUsers: activeCount,
-        hotspotStatus: hotspotActive
+        hotspotStatus: hotspotActive,
+        latencyMs: Date.now() - startTime
       };
     });
 
-    const routerRecord = await prisma.router.findFirst();
-    if (routerRecord) {
-      await prisma.router.update({
-        where: { id: routerRecord.id },
-        data: {
-          status: 'ONLINE',
-          lastConnected: new Date()
-        }
-      });
-    }
-
     return health;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Connection failed';
-    console.warn('Could not connect to real MikroTik RouterOS. Entering Simulation Mode. Error:', message);
-
-    const routerRecord = await prisma.router.findFirst();
-    if (routerRecord && routerRecord.status !== 'OFFLINE') {
-      await prisma.router.update({
-        where: { id: routerRecord.id },
-        data: { status: 'OFFLINE' }
-      }).catch((e) => console.error('Failed to update router status in DB:', e));
-
-      await prisma.activityLog.create({
-        data: {
-          adminId: null,
-          action: 'Router Disconnected',
-          module: 'ROUTER',
-          description: `Lost connection to MikroTik router at ${config.host}:${config.port}. Details: ${message}`,
-          ipAddress: null
-        }
-      }).catch((e) => console.error('Failed to log connection failure:', e));
-    }
-
-    return await getSimulatedHealth(`Offline: ${message}`);
+  } catch (error: any) {
+    return {
+      id: routerConfig.id,
+      name: routerConfig.name,
+      host: routerConfig.host,
+      status: 'OFFLINE' as const,
+      identity: routerConfig.name || 'MikroTik',
+      version: 'Unknown',
+      uptime: 'Offline',
+      cpuUsage: 0,
+      memoryTotal: 0,
+      memoryFree: 0,
+      memoryUsage: 0,
+      connectedUsers: 0,
+      hotspotStatus: 'inactive',
+      latencyMs: Date.now() - startTime,
+      error: error.message || 'Connection failed'
+    };
   }
 }
 
 /**
- * Generates simulated telemetry when no real router is connected.
+ * Legacy getRouterHealth helper for default router or primary dashboard.
  */
-async function getSimulatedHealth(reason?: string) {
-  const activeSessionsCount = await prisma.hotspotSession.count({
-    where: { status: 'ONLINE' }
-  });
+export async function getRouterHealth(routerId?: string) {
+  return getSingleRouterHealth(routerId);
+}
 
-  const cpuUsage = Math.floor(Math.random() * 15) + 5;
-  const memoryTotal = 1024;
-  const memoryFree = 768 - Math.floor(Math.random() * 50);
-  const memoryUsage = Math.round(((memoryTotal - memoryFree) / memoryTotal) * 100);
-
+function getSimulatedHealth(name: string, reason?: string) {
   return {
-    status: 'SIMULATED',
-    identity: 'DeRoyal hAP ax3 (Simulated)',
+    name,
+    status: 'SIMULATED' as const,
+    identity: `${name} (Simulated)`,
     version: 'RouterOS v7.12.1',
     uptime: '12d 4h 32m',
-    cpuUsage,
-    memoryTotal,
-    memoryFree,
-    memoryUsage,
-    connectedUsers: activeSessionsCount,
+    cpuUsage: 12,
+    memoryTotal: 1024,
+    memoryFree: 768,
+    memoryUsage: 25,
+    connectedUsers: 0,
     hotspotStatus: 'active',
+    latencyMs: 15,
     simulationReason: reason
   };
 }
 
 /**
- * Resolves the device's host-name from the DHCP leases table on the MikroTik router.
+ * Resolves DHCP lease device name from a specific router.
  */
-export async function getLeaseDeviceName(macAddress: string): Promise<string> {
-  if (isSimulationMode() || !macAddress) {
-    return 'Simulated Device';
-  }
+export async function getLeaseDeviceName(routerId: string | undefined, macAddress: string): Promise<string> {
+  if (isSimulationMode() || !macAddress) return 'Simulated Device';
 
   try {
-    return await withRouterConnection(async (api) => {
+    return await withRouterConnection(routerId, async (api) => {
       const leases = await safeWrite(api, ['/ip/dhcp-server/lease/print']);
-      // Look for the lease matching our client MAC address
       const targetMac = macAddress.trim().toUpperCase();
       const lease = leases.find((l: any) => l['mac-address']?.toUpperCase() === targetMac);
       return lease?.['host-name'] || 'Unknown Device';
     });
-  } catch (err) {
-    console.warn(`[RouterOS API Warning] Failed to fetch DHCP lease host-name for MAC ${macAddress}:`, err);
+  } catch {
     return 'Unknown Device';
   }
 }

@@ -1,20 +1,25 @@
 import prisma from '../../lib/prisma';
 
 /**
- * Gathers system statistics aggregates and recent activities.
+ * Gathers system statistics aggregates, router health summaries, and recent activities.
  */
-export async function getDashboardStats() {
+export async function getDashboardStats(routerId?: string) {
+  const routerFilter = routerId && routerId !== 'All' ? { routerId } : {};
+
   const [
     plansCount,
     activeVouchersCount,
     unusedVouchersCount,
     onlineUsersCount,
-    recentActivity
+    recentActivity,
+    allRouters,
+    onlineRoutersCount,
+    offlineRoutersCount
   ] = await Promise.all([
     prisma.plan.count(),
-    prisma.voucher.count({ where: { status: 'ACTIVE' } }),
-    prisma.voucher.count({ where: { status: 'UNUSED' } }),
-    prisma.hotspotSession.count({ where: { status: 'ONLINE' } }),
+    prisma.voucher.count({ where: { status: 'ACTIVE', ...routerFilter } }),
+    prisma.voucher.count({ where: { status: 'UNUSED', ...routerFilter } }),
+    prisma.hotspotSession.count({ where: { status: 'ONLINE', ...routerFilter } }),
     prisma.activityLog.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
@@ -26,14 +31,37 @@ export async function getDashboardStats() {
           }
         }
       }
-    })
+    }),
+    prisma.router.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        apiPort: true,
+        status: true,
+        enabled: true,
+        routerIdentity: true,
+        latencyMs: true,
+        lastConnected: true,
+        _count: {
+          select: {
+            vouchers: true,
+            hotspotSessions: { where: { status: 'ONLINE' } }
+          }
+        }
+      }
+    }),
+    prisma.router.count({ where: { deletedAt: null, status: 'ONLINE' } }),
+    prisma.router.count({ where: { deletedAt: null, status: { in: ['OFFLINE', 'DEGRADED', 'UNKNOWN'] } } })
   ]);
 
   const sales = await prisma.voucher.findMany({
     where: {
       status: {
         in: ['ACTIVE', 'EXPIRED']
-      }
+      },
+      ...routerFilter
     },
     select: {
       plan: {
@@ -44,7 +72,7 @@ export async function getDashboardStats() {
     }
   });
 
-  const totalIncome = sales.reduce((sum, v) => sum + v.plan.price, 0);
+  const totalIncome = sales.reduce((sum, v) => sum + (v.plan?.price || 0), 0);
 
   return {
     plansCount,
@@ -52,6 +80,10 @@ export async function getDashboardStats() {
     unusedVouchersCount,
     onlineUsersCount,
     recentActivity,
-    totalIncome
+    totalIncome,
+    totalRouters: allRouters.length,
+    onlineRoutersCount,
+    offlineRoutersCount,
+    routersSummary: allRouters
   };
 }

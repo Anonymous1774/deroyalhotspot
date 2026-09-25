@@ -7,6 +7,11 @@ export const generateVouchersSchema = z.object({
   planId: z
     .string()
     .uuid({ message: 'A valid Plan ID (UUID) is required.' }),
+  routerId: z
+    .string()
+    .uuid({ message: 'Invalid Router ID.' })
+    .nullable()
+    .optional(),
   count: z
     .number({ required_error: 'Quantity is required.' })
     .int({ message: 'Quantity must be an integer.' })
@@ -40,6 +45,7 @@ export const activateVoucherSchema = z.object({
     .min(1, { message: 'Voucher code is required.' })
     .toUpperCase()
     .optional(),
+  routerId: z.string().optional(),
   mac: z.string().optional(),
   macAddress: z.string().optional(),
   ip: z.string().optional(),

@@ -9,7 +9,8 @@ import {
   removeHotspotUser,
   loginActiveHotspotUser,
   getLeaseDeviceName,
-  disconnectHotspotSession
+  disconnectHotspotSession,
+  getRouterConfig
 } from '../../services/mikrotik/mikrotik-client';
 
 /**
@@ -27,7 +28,7 @@ function generateRandomCode(length: number): string {
 }
 
 /**
- * Bulk generates unique vouchers for a given internet plan.
+ * Bulk generates unique vouchers for a given internet plan and optional router.
  */
 export async function generateVouchers(data: GenerateVouchersInput) {
   // 1. Verify plan exists
@@ -37,6 +38,16 @@ export async function generateVouchers(data: GenerateVouchersInput) {
 
   if (!plan) {
     throw new AppError('Internet plan not found. Vouchers cannot be generated.', 422);
+  }
+
+  // Verify router if provided
+  if (data.routerId) {
+    const routerExists = await prisma.router.findFirst({
+      where: { id: data.routerId, deletedAt: null }
+    });
+    if (!routerExists) {
+      throw new AppError('Specified router does not exist or has been deleted.', 422);
+    }
   }
 
   // 2. Fetch voucher length from settings
@@ -54,7 +65,6 @@ export async function generateVouchers(data: GenerateVouchersInput) {
     attempts++;
     const code = generateRandomCode(voucherLength);
     
-    // Check if code is already in database or current set
     const exists = await prisma.voucher.findUnique({
       where: { code }
     });
@@ -71,6 +81,7 @@ export async function generateVouchers(data: GenerateVouchersInput) {
   const voucherData = Array.from(codes).map((code) => ({
     code,
     planId: data.planId,
+    routerId: data.routerId || null,
     status: 'UNUSED' as const
   }));
 
@@ -85,7 +96,14 @@ export async function generateVouchers(data: GenerateVouchersInput) {
       code: { in: Array.from(codes) }
     },
     include: {
-      plan: true
+      plan: true,
+      router: {
+        select: {
+          id: true,
+          name: true,
+          host: true
+        }
+      }
     }
   });
 }
@@ -93,6 +111,7 @@ export async function generateVouchers(data: GenerateVouchersInput) {
 interface VoucherQueryFilters {
   status?: string;
   planId?: string;
+  routerId?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -116,6 +135,10 @@ export async function getVouchersList(filters: VoucherQueryFilters) {
     whereClause.planId = filters.planId;
   }
 
+  if (filters.routerId && filters.routerId !== 'All') {
+    whereClause.routerId = filters.routerId;
+  }
+
   if (filters.search) {
     whereClause.code = {
       contains: filters.search.trim().toUpperCase(),
@@ -131,6 +154,14 @@ export async function getVouchersList(filters: VoucherQueryFilters) {
         plan: {
           include: {
             bandwidthProfile: true
+          }
+        },
+        router: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+            status: true
           }
         }
       },
@@ -170,10 +201,11 @@ export async function disableVoucher(id: string) {
 
   // If the voucher is active, disable on router and disconnect active session
   if (voucher.status === 'ACTIVE') {
-    await removeHotspotUser(voucher.code).catch((err) => {
+    const targetRouterId = voucher.routerId || undefined;
+    await removeHotspotUser(targetRouterId, voucher.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to delete disabled hotspot user '${voucher.code}' from router:`, err);
     });
-    await disconnectHotspotSession(voucher.code).catch((err) => {
+    await disconnectHotspotSession(targetRouterId, voucher.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to disconnect disabled active session for '${voucher.code}' on router:`, err);
     });
   }
@@ -199,10 +231,11 @@ export async function deleteVoucher(id: string) {
 
   // Remove corresponding hotspot user and session from MikroTik router if it was active
   if (voucher.status === 'ACTIVE') {
-    await removeHotspotUser(voucher.code).catch((err) => {
+    const targetRouterId = voucher.routerId || undefined;
+    await removeHotspotUser(targetRouterId, voucher.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${voucher.code}' from router on delete:`, err);
     });
-    await disconnectHotspotSession(voucher.code).catch((err) => {
+    await disconnectHotspotSession(targetRouterId, voucher.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to disconnect active session for '${voucher.code}' on router on delete:`, err);
     });
   }
@@ -225,14 +258,15 @@ export async function deleteAllVouchers() {
   // 1. Fetch active vouchers to clean up RouterOS users
   const activeVouchers = await prisma.voucher.findMany({
     where: { status: 'ACTIVE' },
-    select: { code: true }
+    select: { code: true, routerId: true }
   });
 
   for (const v of activeVouchers) {
-    await removeHotspotUser(v.code).catch((err) => {
+    const targetRouterId = v.routerId || undefined;
+    await removeHotspotUser(targetRouterId, v.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to delete hotspot user '${v.code}' from router on bulk delete:`, err);
     });
-    await disconnectHotspotSession(v.code).catch((err) => {
+    await disconnectHotspotSession(targetRouterId, v.code).catch((err) => {
       console.warn(`[Voucher Service Warning] Failed to disconnect active session for '${v.code}' from router on bulk delete:`, err);
     });
   }
@@ -245,9 +279,15 @@ export async function deleteAllVouchers() {
 }
 
 /**
- * Activates an unused voucher code, calculates expiration, and logs a hotspot session.
+ * Activates an unused voucher code, calculates expiration, and logs a hotspot session on target router.
  */
-export async function activateVoucherCode(code: string, ip?: string, mac?: string, userAgent?: string) {
+export async function activateVoucherCode(
+  code: string,
+  ip?: string,
+  mac?: string,
+  userAgent?: string,
+  explicitRouterId?: string
+) {
   // 1. Fetch voucher (case-insensitive)
   const voucher = await prisma.voucher.findFirst({
     where: {
@@ -260,7 +300,8 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         include: {
           bandwidthProfile: true
         }
-      }
+      },
+      router: true
     }
   });
 
@@ -268,30 +309,35 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
     throw new AppError('Invalid voucher code. Please check the code and try again.', 404);
   }
 
+  // Resolve target router config
+  const routerConfig = await getRouterConfig(voucher.routerId || explicitRouterId);
+  const targetRouterId = routerConfig.id;
+
   // 2. Validate voucher status or handle re-login if already active and not expired
   const now = new Date();
   if (voucher.status === 'ACTIVE') {
     if (voucher.expiresAt && voucher.expiresAt > now) {
-      console.log(`[Voucher Service] Re-authenticating active voucher ${code} for client IP ${ip}...`);
+      console.log(`[Voucher Service] Re-authenticating active voucher ${code} for client IP ${ip} on router ${targetRouterId}...`);
       if (ip && ip !== '0.0.0.0' && !ip.startsWith('10.10.10.')) {
-        await loginActiveHotspotUser(voucher.code, ip).catch((err) => {
+        await loginActiveHotspotUser(targetRouterId, voucher.code, ip).catch((err) => {
           console.warn(`[Voucher Service Warning] Re-login failed:`, err);
         });
       }
 
-      // Update the active IP and MAC to match the new connection coordinates
       const updatedVoucher = await prisma.voucher.update({
         where: { id: voucher.id },
         data: {
           activatedIp: ip || voucher.activatedIp,
-          activatedMac: mac || voucher.activatedMac
+          activatedMac: mac || voucher.activatedMac,
+          routerId: targetRouterId
         },
         include: {
           plan: {
             include: {
               bandwidthProfile: true
             }
-          }
+          },
+          router: true
         }
       });
 
@@ -301,7 +347,6 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         remainingTime: Math.round(remainingMs / 1000)
       };
     } else {
-      // Mark as expired
       await prisma.voucher.update({
         where: { id: voucher.id },
         data: { status: 'EXPIRED' }
@@ -327,7 +372,7 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
     throw new AppError('This voucher plan is currently inactive.', 400);
   }
 
-  // 4. Calculate duration limit in milliseconds
+  // 4. Calculate duration limit
   let durationMs = 0;
   const durationValue = voucher.plan.duration;
   const unit = voucher.plan.durationUnit.toLowerCase();
@@ -339,7 +384,6 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
   } else if (unit === 'days') {
     durationMs = durationValue * 24 * 60 * 60 * 1000;
   } else {
-    // default fallback to minutes
     durationMs = durationValue * 60 * 1000;
   }
 
@@ -349,7 +393,6 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
   const limitUptime = formatLimitUptime(durationValue, unit);
   const profile = voucher.plan.bandwidthProfile.mikrotikQueueName;
 
-  // Format the rate limit string for MikroTik profile auto-creation (format: "upload/download")
   const cleanSpeed = (val: string) => {
     const match = val.trim().toUpperCase().match(/^(\d+)([MKG])?/);
     if (!match) return '1M';
@@ -357,19 +400,19 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
   };
   const rateLimit = `${cleanSpeed(voucher.plan.bandwidthProfile.uploadSpeed)}/${cleanSpeed(voucher.plan.bandwidthProfile.downloadSpeed)}`;
 
-  // 5. Verify router is reachable before consuming the voucher
+  // 5. Verify target router is reachable
   try {
-    await ensureRouterReachable();
+    await ensureRouterReachable(targetRouterId);
   } catch {
     throw new AppError(
-      'Hotspot service is temporarily unavailable. Please try again in a moment.',
+      'Hotspot service for this router is temporarily unavailable. Please try again in a moment.',
       503
     );
   }
 
-  // 6. Create hotspot user on MikroTik (username = password = voucher code)
+  // 6. Create hotspot user on MikroTik
   try {
-    await createHotspotUser({
+    await createHotspotUser(targetRouterId, {
       username,
       password: username,
       profile,
@@ -386,7 +429,7 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
     );
   }
 
-  // 7. Persist activation — rollback MikroTik user if DB write fails
+  // 7. Persist activation
   try {
     const updatedVoucher = await prisma.voucher.update({
       where: { id: voucher.id },
@@ -396,20 +439,23 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
         expiresAt,
         activatedIp: ip || null,
         activatedMac: mac || null,
-        mikrotikUsername: username
+        mikrotikUsername: username,
+        routerId: targetRouterId
       },
       include: {
         plan: {
           include: {
             bandwidthProfile: true
           }
-        }
+        },
+        router: true
       }
     });
 
     await prisma.hotspotSession.create({
       data: {
         voucherId: voucher.id,
+        routerId: targetRouterId,
         username,
         ipAddress: ip || '0.0.0.0',
         macAddress: mac || '00:00:00:00:00:00',
@@ -419,7 +465,7 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
     });
 
     if (mac && mac !== '00:00:00:00:00:00') {
-      const deviceName = await getLeaseDeviceName(mac).catch(() => 'Unknown Device');
+      const deviceName = await getLeaseDeviceName(targetRouterId, mac).catch(() => 'Unknown Device');
       await prisma.registeredDevice.upsert({
         where: { macAddress: mac.trim().toUpperCase() },
         update: {
@@ -440,16 +486,6 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
           isBlocked: false
         }
       });
-
-      await prisma.activityLog.create({
-        data: {
-          adminId: null,
-          action: 'Device Registered',
-          module: 'ROUTER',
-          description: `Device MAC '${mac.trim().toUpperCase()}' (${deviceName}) registered for voucher '${updatedVoucher.code}'.`,
-          ipAddress: ip || null
-        }
-      }).catch((e) => console.error('Failed to log device registration:', e));
     }
 
     return {
@@ -457,8 +493,8 @@ export async function activateVoucherCode(code: string, ip?: string, mac?: strin
       remainingTime: Math.round(durationMs / 1000)
     };
   } catch (error) {
-    await removeHotspotUser(username).catch((rollbackError) => {
-      console.error(`Failed to rollback MikroTik user '${username}':`, rollbackError);
+    await removeHotspotUser(targetRouterId, username).catch((rollbackError) => {
+      console.error(`Failed to rollback MikroTik user '${username}' on router '${targetRouterId}':`, rollbackError);
     });
     throw error;
   }

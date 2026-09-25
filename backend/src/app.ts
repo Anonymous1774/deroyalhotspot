@@ -58,6 +58,7 @@ app.use('/api/v1/hotspot', hotspotRoutes);
 app.use('/api/v1/logs', logsRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/router', routerRoutes);
+app.use('/api/v1/routers', routerRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 
 // Health Check API

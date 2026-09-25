@@ -13,7 +13,8 @@ import {
   X,
   Sun,
   Moon,
-  ExternalLink
+  ExternalLink,
+  Server
 } from 'lucide-react';
 import { AdminUser } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -32,6 +33,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, onLogout, ad
 
   const navItems = [
     { label: 'Dashboard Overview', path: '/admin', icon: LayoutDashboard },
+    { label: 'Routers & Gateways', path: '/admin/routers', icon: Server },
     { label: 'Internet Plans', path: '/admin/plans', icon: Wifi },
     { label: 'Bandwidth Profiles', path: '/admin/profiles', icon: Network },
     { label: 'Vouchers', path: '/admin/vouchers', icon: FileSpreadsheet },

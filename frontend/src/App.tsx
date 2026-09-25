@@ -9,6 +9,7 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { CaptivePortalPage } from './pages/CaptivePortalPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { RoutersPage } from './pages/RoutersPage';
 import { PlansPage } from './pages/PlansPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { VouchersPage } from './pages/VouchersPage';
@@ -131,6 +132,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute admin={admin} loading={authLoading}>
               <AdminLayout onLogout={handleLogout} admin={admin}>
                 <AdminDashboardPage />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/routers"
+          element={
+            <ProtectedRoute admin={admin} loading={authLoading}>
+              <AdminLayout onLogout={handleLogout} admin={admin}>
+                <RoutersPage />
               </AdminLayout>
             </ProtectedRoute>
           }

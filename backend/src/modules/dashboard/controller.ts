@@ -6,7 +6,8 @@ import * as service from './service';
  */
 export async function fetchStats(req: Request, res: Response, next: NextFunction) {
   try {
-    const stats = await service.getDashboardStats();
+    const { routerId } = req.query;
+    const stats = await service.getDashboardStats(routerId ? String(routerId) : undefined);
 
     return res.status(200).json({
       success: true,

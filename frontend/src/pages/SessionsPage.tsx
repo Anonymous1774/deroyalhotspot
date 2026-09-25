@@ -1,23 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, RefreshCw, Smartphone, Globe } from 'lucide-react';
+import { LogOut, RefreshCw, Smartphone, Globe, Server } from 'lucide-react';
 import api from '../services/api';
-import { HotspotSession } from '../types';
+import { HotspotSession, RouterItem } from '../types';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
-
 import { SEOHead } from '../components/SEOHead';
 
 export const SessionsPage: React.FC = () => {
   const [sessions, setSessions] = useState<HotspotSession[]>([]);
+  const [routers, setRouters] = useState<RouterItem[]>([]);
+  const [routerFilter, setRouterFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   const { showToast } = useToast();
 
+  const fetchRouters = async () => {
+    try {
+      const res = await api.get('/routers');
+      if (res.data && res.data.success) {
+        setRouters(res.data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/hotspot/sessions');
+      const params: any = {};
+      if (routerFilter) params.routerId = routerFilter;
+
+      const res = await api.get('/hotspot/sessions', { params });
       if (res.data && res.data.success) {
         setSessions(res.data.data.sessions || []);
       }
@@ -30,8 +45,12 @@ export const SessionsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchSessions();
+    fetchRouters();
   }, []);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [routerFilter]);
 
   const handleDisconnect = async (username: string) => {
     try {
@@ -70,18 +89,30 @@ export const SessionsPage: React.FC = () => {
             Active Hotspot Sessions
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time connected customer MAC & IP tracking
+            Real-time connected customer MAC & IP tracking across MikroTik gateways
           </p>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <select
+            value={routerFilter}
+            onChange={(e) => setRouterFilter(e.target.value)}
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-700 dark:text-slate-300 font-semibold"
+          >
+            <option value="">All Router Gateways</option>
+            {routers.map((r) => (
+              <option key={r.id} value={r.id}>{r.name} ({r.host})</option>
+            ))}
+          </select>
 
-        <button
-          onClick={fetchSessions}
-          className="min-h-[44px] px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Sessions</span>
-        </button>
+          <button
+            onClick={fetchSessions}
+            className="min-h-[44px] px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Sessions</span>
+          </button>
+        </div>
       </div>
 
       {/* Sessions Table */}
@@ -91,6 +122,7 @@ export const SessionsPage: React.FC = () => {
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="p-4">Voucher / User</th>
+                <th className="p-4">Router Gateway</th>
                 <th className="p-4">IP Address</th>
                 <th className="p-4">MAC Address</th>
                 <th className="p-4">Login Time</th>
@@ -101,11 +133,11 @@ export const SessionsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">Loading active sessions...</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">Loading active sessions...</td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">No active sessions currently connected.</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">No active sessions currently connected.</td>
                 </tr>
               ) : (
                 sessions.map((s) => (
@@ -117,6 +149,12 @@ export const SessionsPage: React.FC = () => {
                           {s.voucher.plan.name}
                         </span>
                       )}
+                    </td>
+                    <td className="p-4 text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <Server size={13} className="text-blue-500" />
+                        <span>{s.router?.name || 'Primary Router'}</span>
+                      </div>
                     </td>
                     <td className="p-4 font-mono text-slate-700 dark:text-slate-300">
                       <div className="flex items-center gap-1.5">
