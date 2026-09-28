@@ -365,9 +365,12 @@ export async function createHotspotUser(
     }
   });
 
+  const routerConfig = await getRouterConfig(routerId);
+  const routerName = routerConfig.name || routerConfig.host || 'Default Router';
+
   await logRouterEvent(
     'User Created',
-    `Hotspot user '${params.username}' created on router '${routerId || 'default'}'.`
+    `Hotspot user '${params.username}' created on router '${routerName}'.`
   );
 }
 
@@ -400,8 +403,11 @@ export async function loginActiveHotspotUser(routerId: string | undefined, usern
  * Removes a hotspot user from a specific router.
  */
 export async function removeHotspotUser(routerId: string | undefined, username: string): Promise<void> {
+  const routerConfig = await getRouterConfig(routerId);
+  const routerName = routerConfig.name || routerConfig.host || 'Default Router';
+
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] removeHotspotUser: ${username} on router ${routerId || 'default'}`);
+    console.log(`[SIMULATION] removeHotspotUser: ${username} on router ${routerName}`);
     return;
   }
 
@@ -416,15 +422,18 @@ export async function removeHotspotUser(routerId: string | undefined, username: 
     }
   });
 
-  await logRouterEvent('User Removed', `Hotspot user '${username}' removed from router ${routerId || 'default'}.`);
+  await logRouterEvent('User Removed', `Hotspot user '${username}' removed from router '${routerName}'.`);
 }
 
 /**
  * Terminates an active session on a specific router.
  */
 export async function disconnectHotspotSession(routerId: string | undefined, username: string): Promise<void> {
+  const routerConfig = await getRouterConfig(routerId);
+  const routerName = routerConfig.name || routerConfig.host || 'Default Router';
+
   if (isSimulationMode()) {
-    console.log(`[SIMULATION] disconnectHotspotSession: ${username} on router ${routerId || 'default'}`);
+    console.log(`[SIMULATION] disconnectHotspotSession: ${username} on router ${routerName}`);
     return;
   }
 
@@ -443,7 +452,7 @@ export async function disconnectHotspotSession(routerId: string | undefined, use
 
   await logRouterEvent(
     'Session Disconnected',
-    `Hotspot session for '${username}' terminated on router ${routerId || 'default'}.`
+    `Hotspot session for '${username}' terminated on router '${routerName}'.`
   );
 }
 

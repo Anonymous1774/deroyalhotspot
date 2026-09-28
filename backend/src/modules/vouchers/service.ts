@@ -317,11 +317,26 @@ export async function activateVoucherCode(
   const now = new Date();
   if (voucher.status === 'ACTIVE') {
     if (voucher.expiresAt && voucher.expiresAt > now) {
+      // Check MAC address binding if voucher was previously activated
+      const boundMac = voucher.activatedMac ? voucher.activatedMac.trim().toUpperCase() : null;
+      const incomingMac = mac ? mac.trim().toUpperCase() : null;
+
+      if (boundMac && incomingMac && incomingMac !== '00:00:00:00:00:00') {
+        if (boundMac !== incomingMac) {
+          throw new AppError('This voucher code has already been activated on another device.', 400);
+        }
+      } else if (boundMac && !incomingMac && ip && voucher.activatedIp && ip !== voucher.activatedIp && ip !== '0.0.0.0') {
+        throw new AppError('This voucher code has already been activated on another device.', 400);
+      }
+
       console.log(`[Voucher Service] Re-authenticating active voucher ${code} for client IP ${ip} on router ${targetRouterId}...`);
       if (ip && ip !== '0.0.0.0' && !ip.startsWith('10.10.10.')) {
-        await loginActiveHotspotUser(targetRouterId, voucher.code, ip).catch((err) => {
+        try {
+          await loginActiveHotspotUser(targetRouterId, voucher.code, ip);
+        } catch (err: any) {
           console.warn(`[Voucher Service Warning] Re-login failed:`, err);
-        });
+          throw new AppError(`Re-authentication failed on router: ${err.message || 'Unable to authorize access'}`, 500);
+        }
       }
 
       const updatedVoucher = await prisma.voucher.update({
@@ -351,12 +366,12 @@ export async function activateVoucherCode(
         where: { id: voucher.id },
         data: { status: 'EXPIRED' }
       });
-      throw new AppError('This voucher code has already been used.', 400);
+      throw new AppError('This voucher code has already been used and expired.', 400);
     }
   }
 
   if (voucher.status === 'EXPIRED') {
-    throw new AppError('This voucher code has already been used.', 400);
+    throw new AppError('This voucher code has already been used and expired.', 400);
   }
 
   if (voucher.status === 'DISABLED') {

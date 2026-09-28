@@ -191,12 +191,13 @@ export async function activate(req: Request, res: Response, next: NextFunction) 
 
 
     // 3. Log activity (public event: no admin ID)
+    const routerName = result.voucher.router?.name || 'Main Router';
     await prisma.activityLog.create({
       data: {
         adminId: null,
         action: 'Hotspot User Activated',
         module: 'ROUTER',
-        description: `Hotspot customer activated voucher code '${result.voucher.code}' for plan '${result.voucher.plan.name}'.`,
+        description: `Hotspot customer activated voucher code '${result.voucher.code}' for plan '${result.voucher.plan.name}' on router '${routerName}'.`,
         ipAddress: ip || null
       }
     });
