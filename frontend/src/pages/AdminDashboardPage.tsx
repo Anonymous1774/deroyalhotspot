@@ -118,15 +118,15 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  // Mock hourly activity data for visual SVG chart
-  const trendData = [
-    { hour: '00:00', users: 12, traffic: 45 },
-    { hour: '04:00', users: 5, traffic: 18 },
-    { hour: '08:00', users: 34, traffic: 120 },
-    { hour: '12:00', users: 68, traffic: 340 },
-    { hour: '16:00', users: 85, traffic: 490 },
-    { hour: '20:00', users: 92, traffic: 560 },
-    { hour: '23:59', users: 44, traffic: 280 }
+  // Real 24-hour activity trend data from backend stats
+  const trendData = stats?.hourlyTrend || [
+    { hour: '00:00', users: 0, traffic: 0 },
+    { hour: '04:00', users: 0, traffic: 0 },
+    { hour: '08:00', users: 0, traffic: 0 },
+    { hour: '12:00', users: 0, traffic: 0 },
+    { hour: '16:00', users: 0, traffic: 0 },
+    { hour: '20:00', users: 0, traffic: 0 },
+    { hour: '23:59', users: 0, traffic: 0 }
   ];
 
   return (
@@ -292,20 +292,33 @@ export const AdminDashboardPage: React.FC = () => {
           {/* SVG Line Chart Graphic */}
           <div className="pt-4">
             <div className="h-52 w-full relative flex items-end justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-              {trendData.map((d, i) => {
-                const heightPercent = Math.min(100, Math.max(15, (d.traffic / 600) * 100));
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                    <div className="w-full max-w-[28px] bg-slate-100 dark:bg-slate-800 rounded-t-lg relative overflow-hidden flex items-end h-full">
-                      <div
-                        style={{ height: `${heightPercent}%` }}
-                        className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all duration-500 group-hover:from-blue-500 group-hover:to-blue-300"
-                      />
+              {(() => {
+                const maxVal = Math.max(1, ...trendData.map(d => Math.max(d.traffic, d.users * 20)));
+                return trendData.map((d, i) => {
+                  const heightPercent = d.users > 0 || d.traffic > 0 ? Math.min(100, Math.max(15, (d.traffic / maxVal) * 100)) : 4;
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group relative">
+                      {/* Tooltip on hover */}
+                      <div className="absolute -top-12 hidden group-hover:flex flex-col items-center bg-slate-900 text-white text-[11px] font-semibold py-1 px-2.5 rounded-lg shadow-xl z-20 whitespace-nowrap pointer-events-none transition-all">
+                        <span>{d.users} Active Users</span>
+                        <span className="text-[9px] text-blue-400">{d.traffic} MB Est.</span>
+                      </div>
+
+                      <div className="w-full max-w-[28px] bg-slate-100 dark:bg-slate-800 rounded-t-lg relative overflow-hidden flex items-end h-full">
+                        <div
+                          style={{ height: `${heightPercent}%` }}
+                          className={`w-full rounded-t-lg transition-all duration-500 ${
+                            d.users > 0
+                              ? 'bg-gradient-to-t from-blue-600 to-emerald-400 group-hover:from-blue-500 group-hover:to-emerald-300'
+                              : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono">{d.hour}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">{d.hour}</span>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         </Card>

@@ -134,6 +134,12 @@ export interface RouterTelemetry {
   error?: string;
 }
 
+export interface TrendPoint {
+  hour: string;
+  users: number;
+  traffic: number;
+}
+
 export interface DashboardStats {
   plansCount: number;
   activeVouchersCount: number;
@@ -145,6 +151,7 @@ export interface DashboardStats {
   offlineRoutersCount?: number;
   routersSummary?: RouterItem[];
   recentActivity: ActivityLog[];
+  hourlyTrend?: TrendPoint[];
 }
 
 export interface ActivityLog {
