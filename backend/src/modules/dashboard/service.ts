@@ -1,4 +1,6 @@
 import prisma from '../../lib/prisma';
+import { getSingleRouterHealth, ActiveDeviceItem } from '../../services/mikrotik/mikrotik-client';
+import { get24HourTrend } from '../../services/telemetry/history-tracker';
 
 /**
  * Gathers system statistics aggregates, router health summaries, real-time trend data, and recent activities.
@@ -30,7 +32,7 @@ export async function getDashboardStats(routerId?: string) {
     prisma.voucher.count({ where: { status: 'UNUSED', ...routerFilter } }),
     prisma.hotspotSession.count({ where: { status: 'ONLINE', ...routerFilter } }),
     prisma.activityLog.findMany({
-      take: 5,
+      take: 6,
       orderBy: { createdAt: 'desc' },
       include: {
         admin: {
@@ -65,8 +67,47 @@ export async function getDashboardStats(routerId?: string) {
     prisma.router.count({ where: { deletedAt: null, status: { in: ['OFFLINE', 'DEGRADED', 'UNKNOWN'] } } })
   ]);
 
-  // Determine real online users count: max of active online sessions or active non-expired vouchers
-  const onlineUsersCount = Math.max(onlineSessionsCount, activeUnexpiredVouchersCount);
+  // Query live router telemetry to get real connected active devices and data usage
+  let activeDevices: ActiveDeviceItem[] = [];
+  let connectedUsersCount = 0;
+  let totalBytesIn = 0;
+  let totalBytesOut = 0;
+
+  try {
+    if (routerId && routerId !== 'All') {
+      const health = await getSingleRouterHealth(routerId);
+      connectedUsersCount = health.connectedUsers || 0;
+      activeDevices = health.activeDevices || [];
+      totalBytesIn = health.totalBytesIn || 0;
+      totalBytesOut = health.totalBytesOut || 0;
+    } else {
+      const activeRouters = allRouters.filter((r) => r.enabled);
+      if (activeRouters.length > 0) {
+        for (const r of activeRouters) {
+          const health = await getSingleRouterHealth(r.id);
+          connectedUsersCount += (health.connectedUsers || 0);
+          if (health.activeDevices) {
+            activeDevices.push(...health.activeDevices);
+          }
+          totalBytesIn += (health.totalBytesIn || 0);
+          totalBytesOut += (health.totalBytesOut || 0);
+        }
+      } else {
+        const defaultHealth = await getSingleRouterHealth();
+        connectedUsersCount = defaultHealth.connectedUsers || 0;
+        activeDevices = defaultHealth.activeDevices || [];
+        totalBytesIn = defaultHealth.totalBytesIn || 0;
+        totalBytesOut = defaultHealth.totalBytesOut || 0;
+      }
+    }
+  } catch (err) {
+    console.warn('[Dashboard Service Warning] Telemetry query failed, falling back to database state:', err);
+  }
+
+  // Real online users count (devices currently connected and using network on router)
+  const realOnlineUsers = connectedUsersCount > 0 
+    ? connectedUsersCount 
+    : Math.max(onlineSessionsCount, activeUnexpiredVouchersCount);
 
   // Total income calculation from active/expired vouchers
   const sales = await prisma.voucher.findMany({
@@ -87,45 +128,46 @@ export async function getDashboardStats(routerId?: string) {
 
   const totalIncome = sales.reduce((sum, v) => sum + (v.plan?.price || 0), 0);
 
-  // Build real 24-hour trend data points broken down by 4-hour intervals
-  const trendLabels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'];
-  const hourlyTrend = [];
+  // Format total bandwidth data usage
+  const downloadMB = parseFloat((totalBytesOut / (1024 * 1024)).toFixed(2));
+  const uploadMB = parseFloat((totalBytesIn / (1024 * 1024)).toFixed(2));
+  const totalMB = parseFloat(((totalBytesIn + totalBytesOut) / (1024 * 1024)).toFixed(2));
+  const totalGB = parseFloat((totalMB / 1024).toFixed(2));
+  const downloadGB = parseFloat((downloadMB / 1024).toFixed(2));
+  const uploadGB = parseFloat((uploadMB / 1024).toFixed(2));
 
-  for (let i = 0; i < trendLabels.length; i++) {
-    const hoursAgoStart = (trendLabels.length - i) * 4;
-    const hoursAgoEnd = Math.max(0, hoursAgoStart - 4);
-
-    const startTime = new Date(now.getTime() - hoursAgoStart * 60 * 60 * 1000);
-    const endTime = new Date(now.getTime() - hoursAgoEnd * 60 * 60 * 1000);
-
-    const [activationsInWindow, sessionsInWindow] = await Promise.all([
-      prisma.voucher.count({
-        where: {
-          activatedAt: { gte: startTime, lt: endTime },
-          ...routerFilter
-        }
-      }),
-      prisma.hotspotSession.count({
-        where: {
-          loginTime: { gte: startTime, lt: endTime },
-          ...routerFilter
-        }
-      })
-    ]);
-
-    const activeInWindow = Math.max(activationsInWindow, sessionsInWindow);
-    hourlyTrend.push({
-      hour: trendLabels[i],
-      users: activeInWindow,
-      traffic: activeInWindow > 0 ? activeInWindow * 35 + 15 : 0
-    });
+  let formattedDataUsage = `${totalMB.toLocaleString()} MB`;
+  if (totalGB >= 1.0) {
+    formattedDataUsage = `${totalGB.toLocaleString()} GB`;
   }
+
+  // Build real 24-hour hourly trend with live active users and real data usage
+  const hourlyTrend = await get24HourTrend(
+    {
+      activeUsers: realOnlineUsers,
+      downloadMB,
+      uploadMB
+    },
+    routerFilter
+  );
 
   return {
     plansCount,
     activeVouchersCount,
     unusedVouchersCount,
-    onlineUsersCount,
+    onlineUsersCount: realOnlineUsers,
+    activeDevicesCount: realOnlineUsers,
+    activeDevices,
+    dataUsage: {
+      totalBytes: totalBytesIn + totalBytesOut,
+      totalMB,
+      totalGB,
+      downloadMB,
+      uploadMB,
+      downloadGB,
+      uploadGB,
+      formatted: formattedDataUsage
+    },
     recentActivity,
     totalIncome,
     totalRouters: allRouters.length,

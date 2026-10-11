@@ -115,6 +115,32 @@ export interface HotspotSession {
   };
 }
 
+export interface ActiveDeviceItem {
+  id: string;
+  user: string;
+  ipAddress: string;
+  macAddress: string;
+  uptime: string;
+  timeLeft?: string | null;
+  bytesIn: number;
+  bytesOut: number;
+  totalBytes: number;
+  uploadMB: number;
+  downloadMB: number;
+  totalMB: number;
+}
+
+export interface DataUsageSummary {
+  totalBytes: number;
+  totalMB: number;
+  totalGB: number;
+  downloadMB: number;
+  uploadMB: number;
+  downloadGB: number;
+  uploadGB: number;
+  formatted: string;
+}
+
 export interface RouterTelemetry {
   id?: string;
   name?: string;
@@ -128,6 +154,12 @@ export interface RouterTelemetry {
   memoryFree?: number;
   memoryUsage?: number;
   connectedUsers?: number;
+  activeDevices?: ActiveDeviceItem[];
+  totalBytesIn?: number;
+  totalBytesOut?: number;
+  downloadMB?: number;
+  uploadMB?: number;
+  totalDataUsageMB?: number;
   hotspotStatus?: string;
   latencyMs?: number;
   simulationReason?: string;
@@ -138,6 +170,8 @@ export interface TrendPoint {
   hour: string;
   users: number;
   traffic: number;
+  downloadMB?: number;
+  uploadMB?: number;
 }
 
 export interface DashboardStats {
@@ -145,6 +179,9 @@ export interface DashboardStats {
   activeVouchersCount: number;
   unusedVouchersCount: number;
   onlineUsersCount: number;
+  activeDevicesCount?: number;
+  activeDevices?: ActiveDeviceItem[];
+  dataUsage?: DataUsageSummary;
   totalIncome: number;
   totalRouters?: number;
   onlineRoutersCount?: number;

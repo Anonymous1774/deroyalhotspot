@@ -1,6 +1,22 @@
 import { RouterOSClient } from 'routeros-client';
 import prisma from '../../lib/prisma';
 import { decrypt, encrypt } from '../../utils/crypto';
+import { recordTelemetrySample } from '../telemetry/history-tracker';
+
+export interface ActiveDeviceItem {
+  id: string;
+  user: string;
+  ipAddress: string;
+  macAddress: string;
+  uptime: string;
+  timeLeft?: string | null;
+  bytesIn: number;
+  bytesOut: number;
+  totalBytes: number;
+  uploadMB: number;
+  downloadMB: number;
+  totalMB: number;
+}
 
 export interface RouterConfig {
   id?: string;
@@ -463,23 +479,72 @@ export async function getSingleRouterHealth(routerId?: string) {
   const routerConfig = await getRouterConfig(routerId);
 
   if (isSimulationMode()) {
-    return getSimulatedHealth(routerConfig.name || 'Simulated Router', 'Simulation Mode Enabled');
+    return await getSimulatedHealth(routerConfig.name || 'Simulated Router', 'Simulation Mode Enabled', routerConfig.id);
   }
 
   const startTime = Date.now();
   try {
     const health = await withRouterConnection(routerConfig, async (api) => {
-      const [identityRes, resourceRes, activeRes, hotspotRes] = await Promise.all([
+      const [identityRes, resourceRes, activeRes, hotspotRes, userRes] = await Promise.all([
         safeWrite(api, ['/system/identity/print']),
         safeWrite(api, ['/system/resource/print']),
         safeWrite(api, ['/ip/hotspot/active/print']),
-        safeWrite(api, ['/ip/hotspot/print'])
+        safeWrite(api, ['/ip/hotspot/print']),
+        safeWrite(api, ['/ip/hotspot/user/print'])
       ]);
 
       const identity = identityRes[0]?.name || identityRes[0]?.identity || routerConfig.name || 'MikroTik';
       const resource = resourceRes[0] || {};
-      const activeCount = activeRes.length || 0;
       const hotspotActive = hotspotRes.length > 0 ? 'active' : 'inactive';
+
+      // Parse real active devices currently using network
+      const activeDevices: ActiveDeviceItem[] = (activeRes || []).map((s: any) => {
+        const bytesIn = parseInt(s['bytes-in'] || s.bytesIn || '0', 10);
+        const bytesOut = parseInt(s['bytes-out'] || s.bytesOut || '0', 10);
+        const totalBytes = bytesIn + bytesOut;
+        return {
+          id: s['.id'] || s.id || Math.random().toString(),
+          user: s.user || 'Unknown',
+          ipAddress: s.address || s['ip-address'] || '0.0.0.0',
+          macAddress: s['mac-address'] || s.macAddress || '00:00:00:00:00:00',
+          uptime: s.uptime || '0s',
+          timeLeft: s['session-time-left'] || null,
+          bytesIn,
+          bytesOut,
+          totalBytes,
+          uploadMB: parseFloat((bytesIn / (1024 * 1024)).toFixed(2)),
+          downloadMB: parseFloat((bytesOut / (1024 * 1024)).toFixed(2)),
+          totalMB: parseFloat((totalBytes / (1024 * 1024)).toFixed(2))
+        };
+      });
+
+      const activeCount = activeDevices.length;
+      const totalActiveBytesIn = activeDevices.reduce((sum, d) => sum + d.bytesIn, 0);
+      const totalActiveBytesOut = activeDevices.reduce((sum, d) => sum + d.bytesOut, 0);
+
+      // Cumulative user bandwidth from /ip/hotspot/user/print
+      let totalUserBytesIn = 0;
+      let totalUserBytesOut = 0;
+      for (const u of userRes || []) {
+        totalUserBytesIn += parseInt(u['bytes-in'] || u.bytesIn || '0', 10);
+        totalUserBytesOut += parseInt(u['bytes-out'] || u.bytesOut || '0', 10);
+      }
+
+      const totalBytesIn = Math.max(totalActiveBytesIn, totalUserBytesIn);
+      const totalBytesOut = Math.max(totalActiveBytesOut, totalUserBytesOut);
+      const totalDataBytes = totalBytesIn + totalBytesOut;
+
+      const downloadMB = parseFloat((totalBytesOut / (1024 * 1024)).toFixed(2));
+      const uploadMB = parseFloat((totalBytesIn / (1024 * 1024)).toFixed(2));
+      const totalDataUsageMB = parseFloat((totalDataBytes / (1024 * 1024)).toFixed(2));
+
+      // Record sample in rolling history tracker
+      recordTelemetrySample({
+        activeUsers: activeCount,
+        downloadMB,
+        uploadMB,
+        totalMB: totalDataUsageMB
+      });
 
       const cpuLoad = parseInt(resource['cpu-load'] || resource.cpuLoad || '0', 10);
       const totalMem = parseInt(resource['total-memory'] || resource.totalMemory || '0', 10);
@@ -504,6 +569,12 @@ export async function getSingleRouterHealth(routerId?: string) {
         memoryFree: memFreeMB,
         memoryUsage: memUsagePercent,
         connectedUsers: activeCount,
+        activeDevices,
+        totalBytesIn,
+        totalBytesOut,
+        downloadMB,
+        uploadMB,
+        totalDataUsageMB,
         hotspotStatus: hotspotActive,
         latencyMs: Date.now() - startTime
       };
@@ -524,6 +595,12 @@ export async function getSingleRouterHealth(routerId?: string) {
       memoryFree: 0,
       memoryUsage: 0,
       connectedUsers: 0,
+      activeDevices: [],
+      totalBytesIn: 0,
+      totalBytesOut: 0,
+      downloadMB: 0,
+      uploadMB: 0,
+      totalDataUsageMB: 0,
       hotspotStatus: 'inactive',
       latencyMs: Date.now() - startTime,
       error: error.message || 'Connection failed'
@@ -538,18 +615,93 @@ export async function getRouterHealth(routerId?: string) {
   return getSingleRouterHealth(routerId);
 }
 
-function getSimulatedHealth(name: string, reason?: string) {
+async function getSimulatedHealth(name: string, reason?: string, routerId?: string) {
+  // In simulation mode, dynamically reflect real active vouchers & sessions in the DB!
+  const now = new Date();
+  const whereClause: any = {
+    status: 'ACTIVE',
+    expiresAt: { gt: now }
+  };
+  if (routerId) {
+    whereClause.routerId = routerId;
+  }
+
+  let activeVouchers: any[] = [];
+  try {
+    activeVouchers = await prisma.voucher.findMany({
+      where: whereClause,
+      include: {
+        plan: true
+      },
+      take: 20
+    });
+  } catch {
+    activeVouchers = [];
+  }
+
+  const simulatedDevices: ActiveDeviceItem[] = activeVouchers.map((v, idx) => {
+    const loginTime = v.activatedAt ? new Date(v.activatedAt) : new Date(Date.now() - (idx + 1) * 15 * 60 * 1000);
+    const durationSec = Math.max(60, Math.floor((Date.now() - loginTime.getTime()) / 1000));
+    const mins = Math.floor(durationSec / 60);
+    const secs = durationSec % 60;
+    const uptime = `${mins}m ${secs}s`;
+
+    // Realistic data usage based on elapsed time
+    const dlKbps = 220 + ((idx * 67) % 350);
+    const ulKbps = 45 + ((idx * 19) % 85);
+    const bytesOut = Math.min(3 * 1024 * 1024 * 1024, Math.floor(durationSec * dlKbps * 1024));
+    const bytesIn = Math.min(600 * 1024 * 1024, Math.floor(durationSec * ulKbps * 1024));
+    const totalBytes = bytesIn + bytesOut;
+
+    return {
+      id: `sim-${v.id || idx}`,
+      user: v.code,
+      ipAddress: v.activatedIp || `192.168.88.${15 + idx}`,
+      macAddress: v.activatedMac || `5C:E9:1E:84:32:${(10 + idx).toString(16).toUpperCase()}`,
+      uptime,
+      bytesIn,
+      bytesOut,
+      totalBytes,
+      uploadMB: parseFloat((bytesIn / (1024 * 1024)).toFixed(2)),
+      downloadMB: parseFloat((bytesOut / (1024 * 1024)).toFixed(2)),
+      totalMB: parseFloat((totalBytes / (1024 * 1024)).toFixed(2))
+    };
+  });
+
+  const activeCount = simulatedDevices.length;
+  const totalBytesIn = simulatedDevices.reduce((sum, d) => sum + d.bytesIn, 0);
+  const totalBytesOut = simulatedDevices.reduce((sum, d) => sum + d.bytesOut, 0);
+  const totalBytes = totalBytesIn + totalBytesOut;
+
+  const downloadMB = parseFloat((totalBytesOut / (1024 * 1024)).toFixed(2));
+  const uploadMB = parseFloat((totalBytesIn / (1024 * 1024)).toFixed(2));
+  const totalDataUsageMB = parseFloat((totalBytes / (1024 * 1024)).toFixed(2));
+
+  // Record sample in history tracker
+  recordTelemetrySample({
+    activeUsers: activeCount,
+    downloadMB,
+    uploadMB,
+    totalMB: totalDataUsageMB
+  });
+
   return {
     name,
     status: 'SIMULATED' as const,
     identity: `${name} (Simulated)`,
     version: 'RouterOS v7.12.1',
     uptime: '12d 4h 32m',
-    cpuUsage: 12,
+    cpuUsage: activeCount > 0 ? 12 + Math.min(30, activeCount * 4) : 8,
     memoryTotal: 1024,
     memoryFree: 768,
     memoryUsage: 25,
-    connectedUsers: 0,
+    connectedUsers: activeCount,
+    activeDevices: simulatedDevices,
+    totalBytesIn,
+    totalBytesOut,
+    downloadMB,
+    uploadMB,
+    totalDataUsageMB,
     hotspotStatus: 'active',
     latencyMs: 15,
     simulationReason: reason
