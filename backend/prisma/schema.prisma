@@ -1,3 +1,10 @@
+// ============================================================
+// DHOS Multi-Tenant SaaS Schema — Stage 2
+// All existing models preserved; new models added above them.
+// Existing models extended with tenantId (nullable during migration,
+// then made required in a follow-up migration after backfill).
+// ============================================================
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -6,6 +13,10 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS — existing preserved, new ones added
+// ─────────────────────────────────────────────────────────────
 
 enum AdminRole {
   SUPER_ADMIN
@@ -33,6 +44,285 @@ enum RouterStatus {
   UNKNOWN
 }
 
+// New enums
+
+enum TenantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum TenantRole {
+  OWNER
+  ADMINISTRATOR
+  NETWORK_MANAGER
+  FINANCE_MANAGER
+  SUPPORT_AGENT
+  STAFF
+}
+
+enum SubscriptionStatus {
+  PENDING
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ─────────────────────────────────────────────────────────────
+// TENANT — the core multi-tenancy anchor
+// ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  email         String
+  phone         String?
+  country       String?
+  address       String?
+  logoUrl       String?   @map("logo_url")
+  status        TenantStatus @default(ACTIVE)
+  isFirstTenant Boolean   @default(false) @map("is_first_tenant")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  tenantUsers       TenantUser[]
+  routers           Router[]
+  plans             Plan[]
+  vouchers          Voucher[]
+  bandwidthProfiles BandwidthProfile[]
+  sessions          HotspotSession[]
+  devices           RegisteredDevice[]
+  auditLogs         AuditLog[]
+  subscription      TenantSubscription?
+  settings          TenantSetting[]
+  customers         Customer[]
+  supportTickets    SupportTicket[]
+
+  @@map("tenants")
+  @@index([slug])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// PLATFORM USER — replaces Admin for ISP staff
+// (Admin model kept separately for backward compat during migration)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String       @id @default(uuid())
+  fullName     String       @map("full_name")
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  isActive     Boolean      @default(true) @map("is_active")
+  isSuperAdmin Boolean      @default(false) @map("is_super_admin")
+  lastLogin    DateTime?    @map("last_login")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  tenantUsers  TenantUser[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+  @@index([email])
+}
+
+// Many-to-many between User and Tenant, with a role per membership
+
+model TenantUser {
+  id        String     @id @default(uuid())
+  tenantId  String     @map("tenant_id")
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String     @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TenantRole @default(STAFF)
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@unique([tenantId, userId])
+  @@map("tenant_users")
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBSCRIPTION MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id              String               @id @default(uuid())
+  name            String               @unique
+  description     String?
+  price           Float
+  billingInterval String               @map("billing_interval") // "monthly" | "annual" | "lifetime"
+  routerLimit     Int                  @default(1) @map("router_limit")
+  staffLimit      Int                  @default(3) @map("staff_limit")
+  features        Json                 @default("[]")
+  trialDays       Int                  @default(14) @map("trial_days")
+  isActive        Boolean              @default(true) @map("is_active")
+  sortOrder       Int                  @default(0) @map("sort_order")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  subscriptions   TenantSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model TenantSubscription {
+  id                 String             @id @default(uuid())
+  tenantId           String             @unique @map("tenant_id")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId             String             @map("plan_id")
+  plan               SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(TRIAL)
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  currentPeriodStart DateTime?          @map("current_period_start")
+  currentPeriodEnd   DateTime?          @map("current_period_end")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  activatedAt        DateTime?          @map("activated_at")
+  notes              String?            // Super Admin notes
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  payments           SubscriptionPayment[]
+
+  @@map("tenant_subscriptions")
+  @@index([status])
+}
+
+model SubscriptionPayment {
+  id             String             @id @default(uuid())
+  subscriptionId String             @map("subscription_id")
+  subscription   TenantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String             @default("NGN")
+  status         PaymentStatus      @default(PENDING)
+  reference      String?
+  method         String?            // "manual" | "paystack" | "flutterwave"
+  description    String?
+  paidAt         DateTime?          @map("paid_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscription_payments")
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CUSTOMER — internet end-users (optional accounts)
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fullName     String?   @map("full_name")
+  email        String?
+  phone        String?
+  passwordHash String?   @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  isGuest      Boolean   @default(false) @map("is_guest")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, email])
+  @@map("customers")
+  @@index([tenantId])
+  @@index([email])
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT LOG — replaces ActivityLog with tenant + user type support
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String?  @map("tenant_id")
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  userId      String?  @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorType   String   @default("system") @map("actor_type") // "superadmin" | "owner" | "staff" | "customer" | "system"
+  actorEmail  String?  @map("actor_email")
+  action      String
+  module      String
+  description String
+  ipAddress   String?  @map("ip_address")
+  metadata    Json?    // extra context (router id, voucher code, etc.)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TENANT SETTINGS — per-tenant key-value config
+// ─────────────────────────────────────────────────────────────
+
+model TenantSetting {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, key])
+  @@map("tenant_settings")
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUPPORT TICKETS
+// ─────────────────────────────────────────────────────────────
+
+model SupportTicket {
+  id           String       @id @default(uuid())
+  tenantId     String?      @map("tenant_id")
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  subject      String
+  description  String
+  status       TicketStatus @default(OPEN)
+  priority     String       @default("NORMAL") // "LOW" | "NORMAL" | "HIGH" | "URGENT"
+  contactEmail String       @map("contact_email")
+  contactName  String?      @map("contact_name")
+  resolvedAt   DateTime?    @map("resolved_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@map("support_tickets")
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXISTING MODELS — extended with tenantId (nullable during migration)
+// ─────────────────────────────────────────────────────────────
+
 model Admin {
   id           String        @id @default(uuid())
   fullName     String        @map("full_name")
@@ -44,30 +334,41 @@ model Admin {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   activityLogs ActivityLog[]
+  // Deprecated: use User + TenantUser. Kept for rollback safety.
+  migratedAt   DateTime?     @map("migrated_at")
 
   @@map("admins")
 }
 
 model BandwidthProfile {
-  id                 String   @id @default(uuid())
-  name               String   @unique
-  downloadSpeed      String   @map("download_speed") // e.g. "5M" or "5Mbps"
-  uploadSpeed        String   @map("upload_speed")   // e.g. "2M" or "2Mbps"
-  mikrotikQueueName  String   @map("mikrotik_queue_name")
-  status             String   @default("ACTIVE")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  plans              Plan[]
+  id                String   @id @default(uuid())
+  // tenantId: nullable during migration, required after backfill
+  tenantId          String?  @map("tenant_id")
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  downloadSpeed     String   @map("download_speed")
+  uploadSpeed       String   @map("upload_speed")
+  mikrotikQueueName String   @map("mikrotik_queue_name")
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  plans             Plan[]
 
+  // Uniqueness scoped to tenant (global unique removed — see migration notes)
+  @@unique([tenantId, name])
   @@map("bandwidth_profiles")
+  @@index([tenantId])
 }
 
 model Plan {
   id                 String           @id @default(uuid())
+  // tenantId: nullable during migration
+  tenantId           String?          @map("tenant_id")
+  tenant             Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name               String
   description        String?
   duration           Int              @map("duration_value")
-  durationUnit       String           @map("duration_unit") // e.g. "minutes", "hours", "days"
+  durationUnit       String           @map("duration_unit")
   bandwidthProfileId String           @map("bandwidth_profile_id")
   bandwidthProfile   BandwidthProfile @relation(fields: [bandwidthProfileId], references: [id])
   price              Float
@@ -78,29 +379,34 @@ model Plan {
   routerPlans        RouterPlan[]
 
   @@map("plans")
+  @@index([tenantId])
   @@index([bandwidthProfileId])
 }
 
 model Voucher {
-  id               String           @id @default(uuid())
-  code             String           @unique
-  planId           String           @map("plan_id")
-  plan             Plan             @relation(fields: [planId], references: [id])
-  routerId         String?          @map("router_id")
-  router           Router?          @relation(fields: [routerId], references: [id], onDelete: SetNull)
-  status           VoucherStatus    @default(UNUSED)
-  generatedBy      String?          @map("generated_by") // admin user email or ID
-  activatedAt      DateTime?        @map("activated_at")
-  expiresAt        DateTime?        @map("expires_at")
-  activatedIp      String?          @map("activated_ip")
-  activatedMac     String?          @map("activated_mac")
-  mikrotikUsername String?          @map("mikrotik_username")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  hotspotSessions   HotspotSession[]
+  id               String             @id @default(uuid())
+  // tenantId: nullable during migration
+  tenantId         String?            @map("tenant_id")
+  tenant           Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code             String             @unique
+  planId           String             @map("plan_id")
+  plan             Plan               @relation(fields: [planId], references: [id])
+  routerId         String?            @map("router_id")
+  router           Router?            @relation(fields: [routerId], references: [id], onDelete: SetNull)
+  status           VoucherStatus      @default(UNUSED)
+  generatedBy      String?            @map("generated_by")
+  activatedAt      DateTime?          @map("activated_at")
+  expiresAt        DateTime?          @map("expires_at")
+  activatedIp      String?            @map("activated_ip")
+  activatedMac     String?            @map("activated_mac")
+  mikrotikUsername String?            @map("mikrotik_username")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  hotspotSessions  HotspotSession[]
   registeredDevices RegisteredDevice[]
 
   @@map("vouchers")
+  @@index([tenantId])
   @@index([planId])
   @@index([routerId])
   @@index([status])
@@ -108,6 +414,9 @@ model Voucher {
 
 model HotspotSession {
   id              String        @id @default(uuid())
+  // tenantId: nullable during migration
+  tenantId        String?       @map("tenant_id")
+  tenant          Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   voucherId       String        @map("voucher_id")
   voucher         Voucher       @relation(fields: [voucherId], references: [id])
   routerId        String?       @map("router_id")
@@ -117,41 +426,48 @@ model HotspotSession {
   macAddress      String        @map("mac_address")
   loginTime       DateTime?     @map("login_time")
   logoutTime      DateTime?     @map("logout_time")
-  sessionDuration Int?          @map("session_duration") // in seconds
+  sessionDuration Int?          @map("session_duration")
   status          SessionStatus @default(ONLINE)
   createdAt       DateTime      @default(now()) @map("created_at")
 
   @@map("hotspot_sessions")
+  @@index([tenantId])
   @@index([username])
   @@index([macAddress])
   @@index([routerId])
 }
 
 model Router {
-  id                String            @id @default(uuid())
-  name              String            @unique
+  id                String          @id @default(uuid())
+  // tenantId: nullable during migration
+  tenantId          String?         @map("tenant_id")
+  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
   description       String?
   host              String
-  apiPort           Int               @default(8728) @map("api_port")
-  apiSsl            Boolean           @default(false) @map("api_ssl")
+  apiPort           Int             @default(8728) @map("api_port")
+  apiSsl            Boolean         @default(false) @map("api_ssl")
   username          String
-  encryptedPassword String            @map("encrypted_password")
-  routerIdentity    String?           @map("router_identity")
-  status            RouterStatus      @default(UNKNOWN)
-  enabled           Boolean           @default(true)
-  lastSeenAt        DateTime?         @map("last_seen_at")
-  lastHealthCheckAt DateTime?         @map("last_health_check_at")
-  lastConnected     DateTime?         @map("last_connected")
-  lastError         String?           @map("last_error")
-  latencyMs         Int?              @map("latency_ms")
-  deletedAt         DateTime?         @map("deleted_at")
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  encryptedPassword String          @map("encrypted_password")
+  routerIdentity    String?         @map("router_identity")
+  status            RouterStatus    @default(UNKNOWN)
+  enabled           Boolean         @default(true)
+  lastSeenAt        DateTime?       @map("last_seen_at")
+  lastHealthCheckAt DateTime?       @map("last_health_check_at")
+  lastConnected     DateTime?       @map("last_connected")
+  lastError         String?         @map("last_error")
+  latencyMs         Int?            @map("latency_ms")
+  deletedAt         DateTime?       @map("deleted_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
   vouchers          Voucher[]
   hotspotSessions   HotspotSession[]
   routerPlans       RouterPlan[]
 
+  // Name uniqueness scoped to tenant
+  @@unique([tenantId, name])
   @@map("routers")
+  @@index([tenantId])
   @@index([status])
   @@index([enabled])
 }
@@ -172,6 +488,8 @@ model RouterPlan {
   @@index([planId])
 }
 
+// ActivityLog — KEPT for backward compatibility and rollback.
+// New code writes to AuditLog. Existing records remain here.
 model ActivityLog {
   id          String   @id @default(uuid())
   adminId     String?  @map("admin_id")
@@ -186,6 +504,7 @@ model ActivityLog {
   @@index([createdAt])
 }
 
+// SystemSetting — KEPT for platform-level settings (Super Admin scope)
 model SystemSetting {
   id        String   @id @default(uuid())
   key       String   @unique @map("setting_key")
@@ -197,9 +516,12 @@ model SystemSetting {
 
 model RegisteredDevice {
   id            String   @id @default(uuid())
+  // tenantId: nullable during migration
+  tenantId      String?  @map("tenant_id")
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   voucherId     String   @map("voucher_id")
   voucher       Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-  macAddress    String   @unique @map("mac_address")
+  macAddress    String   @map("mac_address")
   deviceName    String?  @map("device_name")
   userAgent     String?  @map("user_agent")
   lastIpAddress String?  @map("last_ip_address")
@@ -209,7 +531,10 @@ model RegisteredDevice {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  // macAddress uniqueness scoped to tenant (global unique removed)
+  @@unique([tenantId, macAddress])
   @@map("registered_devices")
+  @@index([tenantId])
   @@index([macAddress])
   @@index([voucherId])
 }
