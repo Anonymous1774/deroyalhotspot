@@ -2,19 +2,22 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { IspAuthProvider, useIspAuth } from '../contexts/isp/IspAuthContext';
 import { IspLayout } from '../layouts/IspLayout';
+
+// Auth pages
 import { IspLoginPage }      from '../pages/app/IspLoginPage';
 import { IspRegisterPage }   from '../pages/app/IspRegisterPage';
 import { IspOnboardingPage } from '../pages/app/IspOnboardingPage';
 
-// Re-using existing admin pages until Stage 6 ISP-specific redesign
-import { AdminDashboardPage } from '../pages/AdminDashboardPage';
-import { RoutersPage }        from '../pages/RoutersPage';
-import { PlansPage }          from '../pages/PlansPage';
-import { VouchersPage }       from '../pages/VouchersPage';
-import { SessionsPage }       from '../pages/SessionsPage';
-import { ProfilesPage }       from '../pages/ProfilesPage';
-import { LogsPage }           from '../pages/LogsPage';
-import { SettingsPage }       from '../pages/SettingsPage';
+// Stage 6: Full ISP Dashboard pages
+import { IspDashboardPage }          from '../pages/app/IspDashboardPage';
+import { IspRoutersPage }            from '../pages/app/IspRoutersPage';
+import { IspPlansPage }              from '../pages/app/IspPlansPage';
+import { IspVouchersPage }           from '../pages/app/IspVouchersPage';
+import { IspSessionsPage }           from '../pages/app/IspSessionsPage';
+import { IspStaffPage }              from '../pages/app/IspStaffPage';
+import { IspSubscriptionPage }       from '../pages/app/IspSubscriptionPage';
+import { IspSettingsPage }           from '../pages/app/IspSettingsPage';
+import { IspBandwidthProfilesPage }  from '../pages/app/IspBandwidthProfilesPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useIspAuth();
@@ -41,20 +44,17 @@ export function IspAppRouter() {
         <Route path="/onboarding" element={<IspOnboardingPage />} />
 
         {/* Protected dashboard routes */}
-        <Route path="/dashboard"    element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
-        <Route path="/routers"      element={<ProtectedRoute><RoutersPage /></ProtectedRoute>} />
-        <Route path="/plans"        element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
-        <Route path="/vouchers"     element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
-        <Route path="/sessions"     element={<ProtectedRoute><SessionsPage /></ProtectedRoute>} />
-        <Route path="/profiles"     element={<ProtectedRoute><ProfilesPage /></ProtectedRoute>} />
-        <Route path="/analytics"    element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
-        <Route path="/staff"        element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="/customers"    element={<ProtectedRoute><SessionsPage /></ProtectedRoute>} />
-        <Route path="/subscription" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="/logs"         element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
-        <Route path="/support"      element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="/settings"     element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/dashboard"    element={<ProtectedRoute><IspDashboardPage /></ProtectedRoute>} />
+        <Route path="/routers"      element={<ProtectedRoute><IspRoutersPage /></ProtectedRoute>} />
+        <Route path="/plans"        element={<ProtectedRoute><IspPlansPage /></ProtectedRoute>} />
+        <Route path="/profiles"     element={<ProtectedRoute><IspBandwidthProfilesPage /></ProtectedRoute>} />
+        <Route path="/vouchers"     element={<ProtectedRoute><IspVouchersPage /></ProtectedRoute>} />
+        <Route path="/sessions"     element={<ProtectedRoute><IspSessionsPage /></ProtectedRoute>} />
+        <Route path="/staff"        element={<ProtectedRoute><IspStaffPage /></ProtectedRoute>} />
+        <Route path="/subscription" element={<ProtectedRoute><IspSubscriptionPage /></ProtectedRoute>} />
+        <Route path="/settings"     element={<ProtectedRoute><IspSettingsPage /></ProtectedRoute>} />
 
+        {/* Redirect root to dashboard */}
         <Route path="/"  element={<Navigate to="/dashboard" replace />} />
         <Route path="*"  element={<Navigate to="/dashboard" replace />} />
       </Routes>

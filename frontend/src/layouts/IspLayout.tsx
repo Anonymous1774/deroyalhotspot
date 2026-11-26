@@ -2,22 +2,20 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Server, Package, Ticket, Activity,
-  Users, BarChart3, Settings, LogOut, ChevronRight,
-  Wifi, CreditCard, HelpCircle, Menu
+  Users, Settings, LogOut, ChevronRight,
+  Wifi, CreditCard, Menu, Zap
 } from 'lucide-react';
 import { useIspAuth } from '../contexts/isp/IspAuthContext';
 
 const NAV = [
   { label: 'Dashboard',   icon: LayoutDashboard, to: '/dashboard' },
   { label: 'Routers',     icon: Server,          to: '/routers' },
+  { label: 'BW Profiles', icon: Zap,             to: '/profiles' },
   { label: 'Plans',       icon: Package,         to: '/plans' },
   { label: 'Vouchers',    icon: Ticket,          to: '/vouchers' },
   { label: 'Sessions',    icon: Activity,        to: '/sessions' },
-  { label: 'Customers',   icon: Users,           to: '/customers' },
-  { label: 'Analytics',   icon: BarChart3,       to: '/analytics' },
   { label: 'Staff',       icon: Users,           to: '/staff' },
   { label: 'Subscription',icon: CreditCard,      to: '/subscription' },
-  { label: 'Support',     icon: HelpCircle,      to: '/support' },
   { label: 'Settings',    icon: Settings,        to: '/settings' },
 ];
 
@@ -59,7 +57,9 @@ export function IspLayout({ children }: IspLayoutProps) {
           <span className="text-white font-extrabold text-base">DHOS</span>
         </div>
         {tenant && (
-          <p className="text-slate-500 text-xs mt-1.5 truncate font-medium">{tenant.name}</p>
+          <p className="text-slate-500 text-xs mt-1.5 truncate font-medium">
+            {tenant.businessName || tenant.name}
+          </p>
         )}
       </div>
 
@@ -76,7 +76,7 @@ export function IspLayout({ children }: IspLayoutProps) {
           </div>
           <div className="min-w-0">
             <p className="text-white text-xs font-semibold truncate">{user?.fullName}</p>
-            <p className="text-slate-500 text-[10px] truncate">{user?.tenantRole}</p>
+            <p className="text-slate-500 text-[10px] truncate">{user?.tenantRole?.replace(/_/g, ' ')}</p>
           </div>
         </div>
         <button
@@ -90,7 +90,7 @@ export function IspLayout({ children }: IspLayoutProps) {
   );
 
   return (
-    <div className="flex h-screen bg-surface-100 dark:bg-navy-950 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
         <Sidebar />
@@ -109,16 +109,19 @@ export function IspLayout({ children }: IspLayoutProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 flex items-center gap-3 px-4 border-b border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shrink-0">
+        <header className="h-14 flex items-center gap-3 px-4 border-b border-slate-200 bg-white shrink-0">
           <button
-            className="lg:hidden text-slate-500 hover:text-slate-700 dark:hover:text-white"
+            className="lg:hidden text-slate-500 hover:text-slate-700"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu size={20} />
           </button>
+          <span className="text-sm font-semibold text-navy-900 lg:hidden">
+            {tenant?.businessName || 'DHOS'}
+          </span>
           <div className="flex-1" />
           <a
-            href={`https://deroyalhotspot.name.ng/connect`}
+            href="https://deroyalhotspot.name.ng/connect"
             target="_blank"
             rel="noreferrer"
             className="text-xs text-slate-500 hover:text-wire-blue font-medium transition-colors"
@@ -128,7 +131,7 @@ export function IspLayout({ children }: IspLayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>
       </div>
