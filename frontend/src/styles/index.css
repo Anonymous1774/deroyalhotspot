@@ -2,9 +2,149 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbars or globally applied layout modifiers can go here */
+/* ═══════════════════════════════════════════════════════════════════
+   De Royal Hotspot — Global CSS
+   Design tokens, base resets, and reusable utilities
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Base reset ───────────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── CSS Design Tokens ────────────────────────────────────────────── */
+:root {
+  /* Wire colours */
+  --wire-orange:       #F97316;
+  --wire-orange-light: #FED7AA;
+  --wire-orange-dark:  #C2410C;
+
+  --wire-green:        #22C55E;
+  --wire-green-light:  #BBF7D0;
+  --wire-green-dark:   #15803D;
+
+  --wire-blue:         #3B82F6;
+  --wire-blue-light:   #BFDBFE;
+  --wire-blue-dark:    #1D4ED8;
+
+  --wire-brown:        #B45309;
+  --wire-brown-light:  #FDE68A;
+  --wire-brown-dark:   #78350F;
+
+  /* Brand navy */
+  --navy-950:          #070E24;
+  --navy-900:          #0F1E45;
+  --navy-800:          #172554;
+  --navy-700:          #1E3A8A;
+
+  /* Surface */
+  --surface-100:       #F8FAFC;
+  --surface-200:       #F1F5F9;
+  --surface-300:       #E2E8F0;
+
+  /* Typography */
+  --font-sans:         'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+/* ── Custom Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0F1E45;
+}
+::-webkit-scrollbar-thumb {
+  background: #3B82F6;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F97316;
+}
+
+/* ── Selection colour ─────────────────────────────────────────────── */
+::selection {
+  background: #3B82F6;
+  color: #fff;
+}
+
+/* ── Reusable animation utilities ─────────────────────────────────── */
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-fade-up-delay-1 {
+    animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+    opacity: 0;
+  }
+  .animate-fade-up-delay-2 {
+    animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+    opacity: 0;
+  }
+  .animate-fade-up-delay-3 {
+    animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+    opacity: 0;
+  }
+
+  /* Wire accent bar — 4-colour stripe */
+  .wire-bar {
+    height: 4px;
+    background: linear-gradient(
+      to right,
+      #F97316 0% 25%,
+      #22C55E 25% 50%,
+      #3B82F6 50% 75%,
+      #B45309 75% 100%
+    );
+  }
+
+  /* Thin wire stripe used in section dividers */
+  .wire-stripe {
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      #F97316 0% 25%,
+      #22C55E 25% 50%,
+      #3B82F6 50% 75%,
+      #B45309 75% 100%
+    );
+    border-radius: 1px;
+  }
+
+  /* Section label dot indicator */
+  .wire-dot-orange { background-color: #F97316; }
+  .wire-dot-green  { background-color: #22C55E; }
+  .wire-dot-blue   { background-color: #3B82F6; }
+  .wire-dot-brown  { background-color: #B45309; }
+}
+
+/* ── Keyframes ────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+  50%       { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+}
+
+.animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
+.animate-float    { animation: float 4s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }

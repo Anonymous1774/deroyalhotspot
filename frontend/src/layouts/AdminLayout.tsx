@@ -200,6 +200,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, onLogout, ad
 
             <Link
               to="/"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-h-[44px]"
+            >
+              <ExternalLink size={13} aria-hidden="true" />
+              <span>View Site</span>
+            </Link>
+            <Link
+              to="/connect"
               className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors min-h-[44px]"
             >
               <Wifi size={14} aria-hidden="true" />

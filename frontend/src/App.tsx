@@ -5,31 +5,55 @@ import { AdminUser } from './types';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { ToastContainer } from './components/ui/ToastContainer';
-import { AdminLayout } from './layouts/AdminLayout';
-import { CaptivePortalPage } from './pages/CaptivePortalPage';
-import { AdminLoginPage } from './pages/AdminLoginPage';
-import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { RoutersPage } from './pages/RoutersPage';
-import { PlansPage } from './pages/PlansPage';
-import { ProfilesPage } from './pages/ProfilesPage';
-import { VouchersPage } from './pages/VouchersPage';
-import { SessionsPage } from './pages/SessionsPage';
-import { LogsPage } from './pages/LogsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { NotFoundPage } from './pages/NotFoundPage';
 
-// Protected Route Guard Component
+// ── Layouts ──────────────────────────────────────────────────────────
+import { AdminLayout } from './layouts/AdminLayout';
+import { PublicLayout } from './layouts/PublicLayout';
+
+// ── Admin pages (preserved) ───────────────────────────────────────────
+import { AdminLoginPage }     from './pages/AdminLoginPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { RoutersPage }        from './pages/RoutersPage';
+import { PlansPage }          from './pages/PlansPage';
+import { ProfilesPage }       from './pages/ProfilesPage';
+import { VouchersPage }       from './pages/VouchersPage';
+import { SessionsPage }       from './pages/SessionsPage';
+import { LogsPage }           from './pages/LogsPage';
+import { SettingsPage }       from './pages/SettingsPage';
+import { NotFoundPage }       from './pages/NotFoundPage';
+
+// ── Captive portal (moved to /connect) ───────────────────────────────
+import { CaptivePortalPage }  from './pages/CaptivePortalPage';
+
+// ── Public pages ──────────────────────────────────────────────────────
+import { LandingPage }     from './pages/public/LandingPage';
+import { PricingPage }     from './pages/public/PricingPage';
+import { HowItWorksPage }  from './pages/public/HowItWorksPage';
+import { CoveragePage }    from './pages/public/CoveragePage';
+import { AboutPage }       from './pages/public/AboutPage';
+import { ContactPage }     from './pages/public/ContactPage';
+import { FAQPage }         from './pages/public/FAQPage';
+import { TermsPage }       from './pages/public/TermsPage';
+import { PrivacyPage }     from './pages/public/PrivacyPage';
+
+// ── DHOS Platform pages ───────────────────────────────────────────────
+import { PlatformPage }         from './pages/platform/PlatformPage';
+import { PlatformFeaturesPage } from './pages/platform/PlatformFeaturesPage';
+import { ForProvidersPage }     from './pages/platform/ForProvidersPage';
+import { PlatformDemoPage }     from './pages/platform/PlatformDemoPage';
+
+// ── Protected Route Guard ─────────────────────────────────────────────
 const ProtectedRoute = ({
   children,
   admin,
-  loading
+  loading,
 }: {
   children: React.ReactNode;
   admin: AdminUser | null;
   loading: boolean;
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
   useEffect(() => {
     if (!loading && !admin && !localStorage.getItem('dhos_token')) {
@@ -49,17 +73,13 @@ const ProtectedRoute = ({
   return admin ? <>{children}</> : null;
 };
 
-// Main App Router Inner Component
+// ── Main App Content ──────────────────────────────────────────────────
 const AppContent: React.FC = () => {
   const [admin, setAdmin] = useState<AdminUser | null>(() => {
     const savedToken = localStorage.getItem('dhos_token');
     const savedAdmin = localStorage.getItem('dhos_admin');
     if (savedToken && savedAdmin) {
-      try {
-        return JSON.parse(savedAdmin);
-      } catch (e) {
-        return null;
-      }
+      try { return JSON.parse(savedAdmin); } catch (e) { return null; }
     }
     return null;
   });
@@ -69,12 +89,7 @@ const AppContent: React.FC = () => {
 
   const verifyAuthSession = async () => {
     const token = localStorage.getItem('dhos_token');
-    if (!token) {
-      setAdmin(null);
-      setAuthLoading(false);
-      return;
-    }
-
+    if (!token) { setAdmin(null); setAuthLoading(false); return; }
     try {
       const response = await api.get('/auth/profile');
       if (response.data && response.data.success) {
@@ -96,14 +111,10 @@ const AppContent: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    verifyAuthSession();
-  }, []);
+  useEffect(() => { verifyAuthSession(); }, []);
 
   const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout').catch(() => {});
-    } finally {
+    try { await api.post('/auth/logout').catch(() => {}); } finally {
       localStorage.removeItem('dhos_token');
       localStorage.removeItem('dhos_admin');
       setAdmin(null);
@@ -116,16 +127,33 @@ const AppContent: React.FC = () => {
     <>
       <ToastContainer />
       <Routes>
-        {/* Customer Captive Portal */}
-        <Route path="/" element={<CaptivePortalPage />} />
+        {/* ── Public marketing website ─────────────────────────── */}
+        <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
+        <Route path="/pricing"      element={<PublicLayout><PricingPage /></PublicLayout>} />
+        <Route path="/how-it-works" element={<PublicLayout><HowItWorksPage /></PublicLayout>} />
+        <Route path="/coverage"     element={<PublicLayout><CoveragePage /></PublicLayout>} />
+        <Route path="/about"        element={<PublicLayout><AboutPage /></PublicLayout>} />
+        <Route path="/contact"      element={<PublicLayout><ContactPage /></PublicLayout>} />
+        <Route path="/faq"          element={<PublicLayout><FAQPage /></PublicLayout>} />
+        <Route path="/terms"        element={<PublicLayout><TermsPage /></PublicLayout>} />
+        <Route path="/privacy"      element={<PublicLayout><PrivacyPage /></PublicLayout>} />
 
-        {/* Admin Login */}
+        {/* ── DHOS Platform pages ───────────────────────────────── */}
+        <Route path="/platform"               element={<PublicLayout><PlatformPage /></PublicLayout>} />
+        <Route path="/platform/features"      element={<PublicLayout><PlatformFeaturesPage /></PublicLayout>} />
+        <Route path="/platform/for-providers" element={<PublicLayout><ForProvidersPage /></PublicLayout>} />
+        <Route path="/platform/demo"          element={<PublicLayout><PlatformDemoPage /></PublicLayout>} />
+
+        {/* ── Captive portal (moved from / to /connect) ─────────── */}
+        <Route path="/connect" element={<CaptivePortalPage />} />
+
+        {/* ── Admin login ───────────────────────────────────────── */}
         <Route
           path="/admin/login"
           element={<AdminLoginPage onLoginSuccess={(adminData) => setAdmin(adminData)} />}
         />
 
-        {/* Protected Admin Routes */}
+        {/* ── Protected Admin routes (all preserved) ────────────── */}
         <Route
           path="/admin"
           element={
@@ -207,7 +235,7 @@ const AppContent: React.FC = () => {
           }
         />
 
-        {/* 404 Fallback */}
+        {/* ── 404 Fallback ──────────────────────────────────────── */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
