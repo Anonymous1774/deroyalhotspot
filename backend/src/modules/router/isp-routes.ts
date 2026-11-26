@@ -25,6 +25,27 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const v = createRouterSchema.safeParse(req.body);
     if (!v.success) return res.status(422).json({ success: false, message: 'Validation failed', error: { code: 'VALIDATION_ERROR', details: v.error.format() } });
+
+    // ── Subscription router limit check ──────────────────────────────
+    const tenantId = tid(req);
+    if (tenantId) {
+      const sub = await prisma.tenantSubscription.findUnique({
+        where: { tenantId },
+        include: { plan: true },
+      });
+      if (sub?.plan?.routerLimit != null && sub.plan.routerLimit > 0) {
+        const count = await prisma.router.count({ where: { tenantId } });
+        if (count >= sub.plan.routerLimit) {
+          return res.status(403).json({
+            success: false,
+            message: `Your ${sub.plan.name} plan allows a maximum of ${sub.plan.routerLimit} router(s). Please upgrade your DHOS subscription to add more.`,
+            error: { code: 'ROUTER_LIMIT_REACHED' },
+          });
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     const router_obj = await service.createRouter(v.data, tid(req));
     await prisma.activityLog.create({ data: { adminId: null, action: 'Router Created', module: 'ROUTER', description: `ISP router '${router_obj.name}' created.`, ipAddress: req.ip || null } });
     return res.status(201).json({ success: true, data: router_obj });

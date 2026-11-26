@@ -220,6 +220,41 @@ export async function loginIsp(data: IspLoginInput, ipAddress?: string | null) {
     );
   }
 
+  // 5b. Check subscription status
+  const subscription = await prisma.tenantSubscription.findUnique({
+    where: { tenantId: tenantUser.tenantId },
+  });
+
+  if (subscription) {
+    if (subscription.status === 'EXPIRED') {
+      throw new AppError(
+        'Your DHOS subscription has expired. Please contact support to renew.',
+        403,
+      );
+    }
+    if (subscription.status === 'CANCELLED') {
+      throw new AppError(
+        'Your DHOS subscription has been cancelled. Please contact support.',
+        403,
+      );
+    }
+    // Auto-expire trial if past trial end date
+    if (
+      subscription.status === 'TRIAL' &&
+      subscription.trialEndsAt &&
+      subscription.trialEndsAt < new Date()
+    ) {
+      await prisma.tenantSubscription.update({
+        where: { tenantId: tenantUser.tenantId },
+        data: { status: 'EXPIRED' },
+      });
+      throw new AppError(
+        'Your 14-day DHOS trial has expired. Please contact support to activate a subscription.',
+        403,
+      );
+    }
+  }
+
   // 6. Update last login
   await prisma.user.update({
     where: { id: user.id },

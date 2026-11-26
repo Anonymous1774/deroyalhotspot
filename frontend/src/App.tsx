@@ -44,7 +44,9 @@ import { ForProvidersPage }     from './pages/platform/ForProvidersPage';
 import { PlatformDemoPage }     from './pages/platform/PlatformDemoPage';
 
 // ── Multi-tenant app routers (Stage 4+) ──────────────────────────────
-import { IspAppRouter } from './routes/IspAppRouter';
+import { IspAppRouter }     from './routes/IspAppRouter';
+import { SuperAdminRouter } from './routes/SuperAdminRouter';
+import { CustomerRouter }   from './routes/CustomerRouter';
 
 // ── Subdomain mode ────────────────────────────────────────────────────
 const APP_MODE = getAppMode();
@@ -170,9 +172,9 @@ export default function App() {
         {APP_MODE === 'app'
           ? <IspAppRouter />
           : APP_MODE === 'platform'
-            ? <IspAppRouter /> /* Stage 7: SuperAdminRouter */
+            ? <SuperAdminRouter />
             : APP_MODE === 'account'
-              ? <IspAppRouter /> /* Stage 8: CustomerRouter */
+              ? <CustomerRouter />
               : <PublicAndAdminApp />}
       </ToastProvider>
     </ThemeProvider>
