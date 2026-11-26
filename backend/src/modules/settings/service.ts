@@ -12,7 +12,7 @@ export async function getSettings() {
   ]);
 
   const settingsMap: Record<string, string> = {};
-  dbSettings.forEach((s) => {
+  dbSettings.forEach((s: any) => {
     settingsMap[s.key] = s.value;
   });
 
@@ -32,7 +32,7 @@ export async function getSettings() {
  * Updates system key-value settings and router API configuration inside a database transaction.
  */
 export async function updateSettings(data: UpdateSettingsInput) {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: any) => {
     // 1. Update System Settings (Key-Value entries)
     if (data.company_name !== undefined) {
       const val = String(data.company_name);
@@ -124,7 +124,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
     const freshRouter = await tx.router.findFirst();
 
     const freshMap: Record<string, string> = {};
-    freshSettings.forEach((s) => {
+    freshSettings.forEach((s: any) => {
       freshMap[s.key] = s.value;
     });
 

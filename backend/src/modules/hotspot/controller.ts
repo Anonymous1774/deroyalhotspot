@@ -88,7 +88,7 @@ export async function purge(req: Request, res: Response, next: NextFunction) {
         description: `Purged ${result.count} historical offline/expired/disconnected hotspot session record(s)${olderThanDays ? ` older than ${olderThanDays} days` : ''}.`,
         ipAddress: req.ip || null
       }
-    }).catch((e) => console.error('Failed to log purgeSessions audit event:', e));
+    }).catch((e: any) => console.error('Failed to log purgeSessions audit event:', e));
 
     return res.status(200).json({
       success: true,

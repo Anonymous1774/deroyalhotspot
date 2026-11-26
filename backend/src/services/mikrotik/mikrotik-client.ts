@@ -179,7 +179,7 @@ export async function withRouterConnection<T>(
             latencyMs,
             lastError: null
           }
-        }).catch((e) => console.error('Failed to update router state on success:', e));
+        }).catch((e: any) => console.error('Failed to update router state on success:', e));
       }
 
       return result;
@@ -229,7 +229,7 @@ async function logRouterEvent(action: string, description: string): Promise<void
       description,
       ipAddress: null
     }
-  }).catch((e) => console.error('Failed to log router event:', e));
+  }).catch((e: any) => console.error('Failed to log router event:', e));
 }
 
 /**

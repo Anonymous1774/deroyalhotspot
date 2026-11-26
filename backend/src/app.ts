@@ -32,7 +32,14 @@ app.use(generalLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Modules Routing
+// Modules Routing — Stage 3: new multi-tenant auth
+import ispAuthRoutes        from './modules/isp-auth/routes';
+import superAdminAuthRoutes from './modules/super-admin-auth/routes';
+import customerAuthRoutes   from './modules/customer-auth/routes';
+import platformRoutes       from './modules/platform/routes';
+import tenantRoutes         from './modules/tenants/routes';
+
+// Modules Routing — existing (backward compat)
 import authRoutes from './modules/auth/routes';
 import bandwidthProfilesRoutes from './modules/bandwidth-profiles';
 import plansRoutes from './modules/plans';
@@ -50,6 +57,14 @@ app.post('/api/v1/vouchers/activate', activateVoucher); // Public voucher activa
 app.use('/api/v1/device', deviceRoutes); // Public device endpoints
 
 
+// ── Stage 3: Multi-tenant auth routes ────────────────────────
+app.use('/api/v1/isp/auth',          ispAuthRoutes);        // ISP owner/staff auth
+app.use('/api/v1/platform/auth',     superAdminAuthRoutes); // Super Admin auth
+app.use('/api/v1/customer/auth',     customerAuthRoutes);   // Customer auth
+app.use('/api/v1/platform',          platformRoutes);       // Platform management (Super Admin)
+app.use('/api/v1/tenants',           tenantRoutes);         // ISP self-service (tenant workspace)
+
+// ── Existing: backward-compat admin auth ──────────────────────
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/bandwidth-profiles', bandwidthProfilesRoutes);
 app.use('/api/v1/plans', plansRoutes);
@@ -109,7 +124,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
         description: `Server Error: ${err.message || 'Internal server error'}. Stack: ${err.stack || 'No stack trace'}`,
         ipAddress: req.ip || null
       }
-    }).catch(e => console.error('Failed to log unhandled VPS exception to DB:', e));
+    }).catch((e: any) => console.error('Failed to log unhandled VPS exception to DB:', e));
   }
 
   // Mask 500 server errors in production, but let client errors (400, 404, etc.) pass through

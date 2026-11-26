@@ -50,7 +50,7 @@ export async function clear(req: Request, res: Response, next: NextFunction) {
         description: `Cleared ${result.count} activity log records${olderThanDays ? ` older than ${olderThanDays} days` : ''}${module ? ` for module '${module}'` : ''}.`,
         ipAddress: req.ip || null
       }
-    }).catch((e) => console.error('Failed to log clearLogs audit event:', e));
+    }).catch((e: any) => console.error('Failed to log clearLogs audit event:', e));
 
     return res.status(200).json({
       success: true,

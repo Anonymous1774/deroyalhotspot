@@ -142,5 +142,5 @@ async function logDeviceActivity(action: string, description: string, ipAddress?
       description,
       ipAddress: ipAddress || null
     }
-  }).catch((e) => console.error('[logDeviceActivity Error]:', e));
+  }).catch((e: any) => console.error('[logDeviceActivity Error]:', e));
 }

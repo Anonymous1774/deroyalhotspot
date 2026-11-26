@@ -81,7 +81,7 @@ export async function getDashboardStats(routerId?: string) {
       totalBytesIn = health.totalBytesIn || 0;
       totalBytesOut = health.totalBytesOut || 0;
     } else {
-      const activeRouters = allRouters.filter((r) => r.enabled);
+      const activeRouters = allRouters.filter((r: any) => r.enabled);
       if (activeRouters.length > 0) {
         for (const r of activeRouters) {
           const health = await getSingleRouterHealth(r.id);
@@ -126,7 +126,7 @@ export async function getDashboardStats(routerId?: string) {
     }
   });
 
-  const totalIncome = sales.reduce((sum, v) => sum + (v.plan?.price || 0), 0);
+  const totalIncome = sales.reduce((sum: number, v: any) => sum + (v.plan?.price || 0), 0);
 
   // Format total bandwidth data usage
   const downloadMB = parseFloat((totalBytesOut / (1024 * 1024)).toFixed(2));
