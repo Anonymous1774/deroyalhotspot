@@ -39,6 +39,14 @@ import customerAuthRoutes   from './modules/customer-auth/routes';
 import platformRoutes       from './modules/platform/routes';
 import tenantRoutes         from './modules/tenants/routes';
 
+// Modules Routing — Stage 5: ISP tenant-scoped API v1 routes
+import ispRouterRoutes    from './modules/router/isp-routes';
+import ispPlanRoutes      from './modules/plans/isp-routes';
+import ispProfileRoutes   from './modules/bandwidth-profiles/isp-routes';
+import ispVoucherRoutes   from './modules/vouchers/isp-routes';
+import ispSessionRoutes   from './modules/hotspot/isp-routes';
+import ispDashboardRoutes from './modules/dashboard/isp-routes';
+
 // Modules Routing — existing (backward compat)
 import authRoutes from './modules/auth/routes';
 import bandwidthProfilesRoutes from './modules/bandwidth-profiles';
@@ -63,6 +71,14 @@ app.use('/api/v1/platform/auth',     superAdminAuthRoutes); // Super Admin auth
 app.use('/api/v1/customer/auth',     customerAuthRoutes);   // Customer auth
 app.use('/api/v1/platform',          platformRoutes);       // Platform management (Super Admin)
 app.use('/api/v1/tenants',           tenantRoutes);         // ISP self-service (tenant workspace)
+
+// ── Stage 5: ISP tenant-scoped API v1 (app.* subdomain) ───────
+app.use('/api/v1/isp/routers',    ispRouterRoutes);    // Tenant-isolated router CRUD
+app.use('/api/v1/isp/plans',      ispPlanRoutes);      // Tenant-isolated plan CRUD
+app.use('/api/v1/isp/profiles',   ispProfileRoutes);   // Tenant-isolated bandwidth profiles
+app.use('/api/v1/isp/vouchers',   ispVoucherRoutes);   // Tenant-isolated voucher management
+app.use('/api/v1/isp/sessions',   ispSessionRoutes);   // Tenant-isolated session management
+app.use('/api/v1/isp/dashboard',  ispDashboardRoutes); // Tenant-isolated dashboard stats
 
 // ── Existing: backward-compat admin auth ──────────────────────
 app.use('/api/v1/auth', authRoutes);

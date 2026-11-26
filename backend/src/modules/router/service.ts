@@ -13,13 +13,20 @@ export function sanitizeRouter(router: any) {
   return sanitized;
 }
 
+/** Build a Prisma where clause that optionally scopes to a tenant. */
+function tenantWhere(tenantId?: string, extra: Record<string, any> = {}) {
+  return tenantId ? { tenantId, ...extra } : extra;
+}
+
 /**
- * Fetches all non-deleted routers from the database.
+ * Fetches all non-deleted routers from the database, scoped to tenant when provided.
  */
-export async function getAllRouters() {
-  await getOrCreateDefaultRouter(); // Ensure default router exists
+export async function getAllRouters(tenantId?: string) {
+  if (!tenantId) {
+    await getOrCreateDefaultRouter();
+  }
   const routers = await prisma.router.findMany({
-    where: { deletedAt: null },
+    where: tenantWhere(tenantId, { deletedAt: null }),
     orderBy: { createdAt: 'desc' },
     include: {
       _count: {
@@ -37,11 +44,11 @@ export async function getAllRouters() {
 }
 
 /**
- * Fetches a single router by ID.
+ * Fetches a single router by ID, verifying tenant ownership.
  */
-export async function getRouterById(id: string) {
+export async function getRouterById(id: string, tenantId?: string) {
   const router = await prisma.router.findFirst({
-    where: { id, deletedAt: null },
+    where: tenantWhere(tenantId, { id, deletedAt: null }),
     include: {
       _count: {
         select: {
@@ -64,10 +71,10 @@ export async function getRouterById(id: string) {
 /**
  * Creates a new MikroTik router record with encrypted password storage.
  */
-export async function createRouter(data: CreateRouterInput) {
-  // Check for duplicate name
+export async function createRouter(data: CreateRouterInput, tenantId?: string) {
+  // Check for duplicate name within tenant scope
   const existing = await prisma.router.findFirst({
-    where: { name: data.name, deletedAt: null }
+    where: tenantWhere(tenantId, { name: data.name, deletedAt: null })
   });
 
   if (existing) {
@@ -86,7 +93,8 @@ export async function createRouter(data: CreateRouterInput) {
       username: data.username,
       encryptedPassword,
       enabled: data.enabled,
-      status: 'UNKNOWN'
+      status: 'UNKNOWN',
+      ...(tenantId ? { tenantId } : {})
     }
   });
 
@@ -97,11 +105,11 @@ export async function createRouter(data: CreateRouterInput) {
 }
 
 /**
- * Updates an existing router record. Preserves password if not explicitly modified.
+ * Updates an existing router record. Verifies tenant ownership. Preserves password if not explicitly modified.
  */
-export async function updateRouter(id: string, data: UpdateRouterInput) {
+export async function updateRouter(id: string, data: UpdateRouterInput, tenantId?: string) {
   const router = await prisma.router.findFirst({
-    where: { id, deletedAt: null }
+    where: tenantWhere(tenantId, { id, deletedAt: null })
   });
 
   if (!router) {
@@ -110,7 +118,7 @@ export async function updateRouter(id: string, data: UpdateRouterInput) {
 
   if (data.name && data.name !== router.name) {
     const duplicate = await prisma.router.findFirst({
-      where: { name: data.name, deletedAt: null, NOT: { id } }
+      where: tenantWhere(tenantId, { name: data.name, deletedAt: null, NOT: { id } })
     });
     if (duplicate) {
       throw new AppError(`A router named '${data.name}' already exists.`, 400);
@@ -139,10 +147,10 @@ export async function updateRouter(id: string, data: UpdateRouterInput) {
 }
 
 /**
- * Enables a router.
+ * Enables a router (tenant-scoped).
  */
-export async function enableRouter(id: string) {
-  const router = await prisma.router.findFirst({ where: { id, deletedAt: null } });
+export async function enableRouter(id: string, tenantId?: string) {
+  const router = await prisma.router.findFirst({ where: tenantWhere(tenantId, { id, deletedAt: null }) });
   if (!router) throw new AppError('Router not found.', 404);
 
   const updated = await prisma.router.update({
@@ -154,10 +162,10 @@ export async function enableRouter(id: string) {
 }
 
 /**
- * Disables a router.
+ * Disables a router (tenant-scoped).
  */
-export async function disableRouter(id: string) {
-  const router = await prisma.router.findFirst({ where: { id, deletedAt: null } });
+export async function disableRouter(id: string, tenantId?: string) {
+  const router = await prisma.router.findFirst({ where: tenantWhere(tenantId, { id, deletedAt: null }) });
   if (!router) throw new AppError('Router not found.', 404);
 
   const updated = await prisma.router.update({
@@ -169,18 +177,17 @@ export async function disableRouter(id: string) {
 }
 
 /**
- * Safely soft deletes a router after checking for active sessions or dependency risks.
+ * Safely soft deletes a router after checking for active sessions (tenant-scoped).
  */
-export async function deleteRouter(id: string) {
+export async function deleteRouter(id: string, tenantId?: string) {
   const router = await prisma.router.findFirst({
-    where: { id, deletedAt: null }
+    where: tenantWhere(tenantId, { id, deletedAt: null })
   });
 
   if (!router) {
     throw new AppError('Router not found.', 404);
   }
 
-  // Check for active sessions on this router
   const activeSessionsCount = await prisma.hotspotSession.count({
     where: { routerId: id, status: 'ONLINE' }
   });
@@ -192,7 +199,6 @@ export async function deleteRouter(id: string) {
     );
   }
 
-  // Soft delete to preserve historical voucher and session records
   const softDeleted = await prisma.router.update({
     where: { id },
     data: {
@@ -208,15 +214,14 @@ export async function deleteRouter(id: string) {
 /**
  * Tests connection to an existing router by ID or unsaved form payload.
  */
-export async function testRouterConnection(id?: string, bodyConfig?: any) {
+export async function testRouterConnection(id?: string, bodyConfig?: any, tenantId?: string) {
   if (id) {
-    const router = await prisma.router.findFirst({ where: { id, deletedAt: null } });
+    const router = await prisma.router.findFirst({ where: tenantWhere(tenantId, { id, deletedAt: null }) });
     if (!router) throw new AppError('Router not found.', 404);
 
     return await testMikrotikConnection(id);
   }
 
-  // Testing unsaved configuration
   const host = bodyConfig?.host;
   const port = bodyConfig?.apiPort ? Number(bodyConfig.apiPort) : 8728;
   const useSsl = Boolean(bodyConfig?.apiSsl);
@@ -237,10 +242,10 @@ export async function testRouterConnection(id?: string, bodyConfig?: any) {
 }
 
 /**
- * Gets live health telemetry for a specific router.
+ * Gets live health telemetry for a specific router (tenant-scoped).
  */
-export async function getRouterHealthDetails(id: string) {
-  const router = await prisma.router.findFirst({ where: { id, deletedAt: null } });
+export async function getRouterHealthDetails(id: string, tenantId?: string) {
+  const router = await prisma.router.findFirst({ where: tenantWhere(tenantId, { id, deletedAt: null }) });
   if (!router) throw new AppError('Router not found.', 404);
 
   return await getSingleRouterHealth(id);

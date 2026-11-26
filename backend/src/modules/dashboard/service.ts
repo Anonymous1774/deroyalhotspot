@@ -4,9 +4,17 @@ import { get24HourTrend } from '../../services/telemetry/history-tracker';
 
 /**
  * Gathers system statistics aggregates, router health summaries, real-time trend data, and recent activities.
+ * When tenantId is provided, all queries are scoped to that tenant's resources.
  */
-export async function getDashboardStats(routerId?: string) {
+export async function getDashboardStats(routerId?: string, tenantId?: string) {
   const routerFilter = routerId && routerId !== 'All' ? { routerId } : {};
+  const tenantFilter = tenantId ? { tenantId } : {};
+
+  // For router-scoped queries, also apply tenant filter on router.tenantId if tenantId provided
+  const tenantRouterFilter = tenantId
+    ? { router: { tenantId } }
+    : {};
+
   const now = new Date();
 
   const [
@@ -20,17 +28,18 @@ export async function getDashboardStats(routerId?: string) {
     onlineRoutersCount,
     offlineRoutersCount
   ] = await Promise.all([
-    prisma.plan.count(),
-    prisma.voucher.count({ where: { status: 'ACTIVE', ...routerFilter } }),
+    prisma.plan.count({ where: tenantFilter }),
+    prisma.voucher.count({ where: { status: 'ACTIVE', ...routerFilter, ...tenantFilter } }),
     prisma.voucher.count({
       where: {
         status: 'ACTIVE',
         expiresAt: { gt: now },
-        ...routerFilter
+        ...routerFilter,
+        ...tenantFilter
       }
     }),
-    prisma.voucher.count({ where: { status: 'UNUSED', ...routerFilter } }),
-    prisma.hotspotSession.count({ where: { status: 'ONLINE', ...routerFilter } }),
+    prisma.voucher.count({ where: { status: 'UNUSED', ...routerFilter, ...tenantFilter } }),
+    prisma.hotspotSession.count({ where: { status: 'ONLINE', ...routerFilter, ...tenantRouterFilter } }),
     prisma.activityLog.findMany({
       take: 6,
       orderBy: { createdAt: 'desc' },
@@ -44,7 +53,7 @@ export async function getDashboardStats(routerId?: string) {
       }
     }),
     prisma.router.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, ...tenantFilter },
       select: {
         id: true,
         name: true,
@@ -63,8 +72,8 @@ export async function getDashboardStats(routerId?: string) {
         }
       }
     }),
-    prisma.router.count({ where: { deletedAt: null, status: 'ONLINE' } }),
-    prisma.router.count({ where: { deletedAt: null, status: { in: ['OFFLINE', 'DEGRADED', 'UNKNOWN'] } } })
+    prisma.router.count({ where: { deletedAt: null, status: 'ONLINE', ...tenantFilter } }),
+    prisma.router.count({ where: { deletedAt: null, status: { in: ['OFFLINE', 'DEGRADED', 'UNKNOWN'] }, ...tenantFilter } })
   ]);
 
   // Query live router telemetry to get real connected active devices and data usage
@@ -92,7 +101,8 @@ export async function getDashboardStats(routerId?: string) {
           totalBytesIn += (health.totalBytesIn || 0);
           totalBytesOut += (health.totalBytesOut || 0);
         }
-      } else {
+      } else if (!tenantId) {
+        // Only fallback to default router when not tenant-scoped
         const defaultHealth = await getSingleRouterHealth();
         connectedUsersCount = defaultHealth.connectedUsers || 0;
         activeDevices = defaultHealth.activeDevices || [];
@@ -104,18 +114,17 @@ export async function getDashboardStats(routerId?: string) {
     console.warn('[Dashboard Service Warning] Telemetry query failed, falling back to database state:', err);
   }
 
-  // Real online users count (devices currently connected and using network on router)
-  const realOnlineUsers = connectedUsersCount > 0 
-    ? connectedUsersCount 
+  const realOnlineUsers = connectedUsersCount > 0
+    ? connectedUsersCount
     : Math.max(onlineSessionsCount, activeUnexpiredVouchersCount);
 
-  // Total income calculation from active/expired vouchers
   const sales = await prisma.voucher.findMany({
     where: {
       status: {
         in: ['ACTIVE', 'EXPIRED']
       },
-      ...routerFilter
+      ...routerFilter,
+      ...tenantFilter
     },
     select: {
       plan: {
@@ -128,7 +137,6 @@ export async function getDashboardStats(routerId?: string) {
 
   const totalIncome = sales.reduce((sum: number, v: any) => sum + (v.plan?.price || 0), 0);
 
-  // Format total bandwidth data usage
   const downloadMB = parseFloat((totalBytesOut / (1024 * 1024)).toFixed(2));
   const uploadMB = parseFloat((totalBytesIn / (1024 * 1024)).toFixed(2));
   const totalMB = parseFloat(((totalBytesIn + totalBytesOut) / (1024 * 1024)).toFixed(2));
@@ -141,7 +149,6 @@ export async function getDashboardStats(routerId?: string) {
     formattedDataUsage = `${totalGB.toLocaleString()} GB`;
   }
 
-  // Build real 24-hour hourly trend with live active users and real data usage
   const hourlyTrend = await get24HourTrend(
     {
       activeUsers: realOnlineUsers,

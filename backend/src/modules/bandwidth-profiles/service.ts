@@ -11,13 +11,17 @@ export class AppError extends Error {
   }
 }
 
+/** Build a Prisma where clause that optionally scopes to a tenant. */
+function tenantWhere(tenantId?: string, extra: Record<string, any> = {}) {
+  return tenantId ? { tenantId, ...extra } : extra;
+}
+
 /**
- * Creates a new bandwidth profile.
+ * Creates a new bandwidth profile (tenant-scoped).
  */
-export async function createProfile(data: CreateProfileInput) {
-  // Check for duplicate name
-  const existing = await prisma.bandwidthProfile.findUnique({
-    where: { name: data.name }
+export async function createProfile(data: CreateProfileInput, tenantId?: string) {
+  const existing = await prisma.bandwidthProfile.findFirst({
+    where: tenantWhere(tenantId, { name: data.name })
   });
 
   if (existing) {
@@ -25,25 +29,29 @@ export async function createProfile(data: CreateProfileInput) {
   }
 
   return prisma.bandwidthProfile.create({
-    data
+    data: {
+      ...data,
+      ...(tenantId ? { tenantId } : {})
+    }
   });
 }
 
 /**
- * Retrieves all bandwidth profiles.
+ * Retrieves all bandwidth profiles (tenant-scoped when tenantId provided).
  */
-export async function getAllProfiles() {
+export async function getAllProfiles(tenantId?: string) {
   return prisma.bandwidthProfile.findMany({
+    where: tenantId ? { tenantId } : {},
     orderBy: { createdAt: 'desc' }
   });
 }
 
 /**
- * Retrieves a single bandwidth profile by ID.
+ * Retrieves a single bandwidth profile by ID (tenant-scoped).
  */
-export async function getProfileById(id: string) {
-  const profile = await prisma.bandwidthProfile.findUnique({
-    where: { id }
+export async function getProfileById(id: string, tenantId?: string) {
+  const profile = await prisma.bandwidthProfile.findFirst({
+    where: tenantWhere(tenantId, { id })
   });
 
   if (!profile) {
@@ -54,22 +62,20 @@ export async function getProfileById(id: string) {
 }
 
 /**
- * Updates an existing bandwidth profile.
+ * Updates an existing bandwidth profile (tenant-scoped).
  */
-export async function updateProfile(id: string, data: UpdateProfileInput) {
-  // Check if profile exists
-  const profile = await prisma.bandwidthProfile.findUnique({
-    where: { id }
+export async function updateProfile(id: string, data: UpdateProfileInput, tenantId?: string) {
+  const profile = await prisma.bandwidthProfile.findFirst({
+    where: tenantWhere(tenantId, { id })
   });
 
   if (!profile) {
     throw new AppError('Bandwidth profile not found.', 404);
   }
 
-  // Check name conflicts if name is being changed
   if (data.name && data.name !== profile.name) {
-    const existing = await prisma.bandwidthProfile.findUnique({
-      where: { name: data.name }
+    const existing = await prisma.bandwidthProfile.findFirst({
+      where: tenantWhere(tenantId, { name: data.name })
     });
 
     if (existing) {
@@ -84,19 +90,17 @@ export async function updateProfile(id: string, data: UpdateProfileInput) {
 }
 
 /**
- * Deletes a bandwidth profile by ID if it's not referenced by any plan.
+ * Deletes a bandwidth profile by ID if it's not referenced by any plan (tenant-scoped).
  */
-export async function deleteProfile(id: string) {
-  // Check if profile exists
-  const profile = await prisma.bandwidthProfile.findUnique({
-    where: { id }
+export async function deleteProfile(id: string, tenantId?: string) {
+  const profile = await prisma.bandwidthProfile.findFirst({
+    where: tenantWhere(tenantId, { id })
   });
 
   if (!profile) {
     throw new AppError('Bandwidth profile not found.', 404);
   }
 
-  // Check if any plans reference this profile
   const planReference = await prisma.plan.findFirst({
     where: { bandwidthProfileId: id }
   });

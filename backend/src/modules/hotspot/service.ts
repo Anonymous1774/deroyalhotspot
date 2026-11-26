@@ -6,17 +6,25 @@ interface SessionsQueryFilters {
   page?: number;
   limit?: number;
   routerId?: string;
+  tenantId?: string;
+}
+
+/** Build a Prisma where clause that optionally scopes to a tenant via router join. */
+function tenantRouterWhere(tenantId?: string) {
+  if (!tenantId) return {};
+  // HotspotSession links to Router via routerId; filter through router's tenantId
+  return { router: { tenantId } };
 }
 
 /**
- * Retrieves all active customer hotspot sessions (status: ONLINE), with optional router filter.
+ * Retrieves all active customer hotspot sessions (status: ONLINE), with optional router/tenant filter.
  */
 export async function getActiveSessions(filters: SessionsQueryFilters) {
   const page = Number(filters.page) || 1;
   const limit = Number(filters.limit) || 50;
   const skip = (page - 1) * limit;
 
-  const whereClause: any = { status: 'ONLINE' };
+  const whereClause: any = { status: 'ONLINE', ...tenantRouterWhere(filters.tenantId) };
   if (filters.routerId && filters.routerId !== 'All') {
     whereClause.routerId = filters.routerId;
   }
@@ -62,15 +70,15 @@ export async function getActiveSessions(filters: SessionsQueryFilters) {
 }
 
 /**
- * Administrative disconnect for a user session on target router.
+ * Administrative disconnect for a user session on target router (tenant-scoped).
  */
-export async function disconnectUser(username: string, explicitRouterId?: string) {
+export async function disconnectUser(username: string, explicitRouterId?: string, tenantId?: string) {
   const normalizedUsername = username.trim();
 
-  // Find active session
   const whereClause: any = {
     username: normalizedUsername,
-    status: 'ONLINE'
+    status: 'ONLINE',
+    ...tenantRouterWhere(tenantId)
   };
   if (explicitRouterId) {
     whereClause.routerId = explicitRouterId;
@@ -86,7 +94,6 @@ export async function disconnectUser(username: string, explicitRouterId?: string
 
   const targetRouterId = activeSession.routerId || explicitRouterId || undefined;
 
-  // Terminate session on target MikroTik router
   try {
     await disconnectHotspotSession(targetRouterId, normalizedUsername);
   } catch (error: unknown) {
@@ -101,7 +108,6 @@ export async function disconnectUser(username: string, explicitRouterId?: string
     sessionDuration = Math.round((logoutTime.getTime() - activeSession.loginTime.getTime()) / 1000);
   }
 
-  // Update session state in DB
   const updatedSession = await prisma.hotspotSession.update({
     where: { id: activeSession.id },
     data: {
@@ -118,11 +124,12 @@ export async function disconnectUser(username: string, explicitRouterId?: string
  * Purges offline, expired, or disconnected sessions older than specified days.
  * If olderThanDays is omitted or <= 0, purges all non-ONLINE sessions.
  */
-export async function purgeOldSessions(olderThanDays?: number) {
+export async function purgeOldSessions(olderThanDays?: number, tenantId?: string) {
   const whereClause: any = {
     status: {
       in: ['OFFLINE', 'EXPIRED', 'DISCONNECTED']
-    }
+    },
+    ...tenantRouterWhere(tenantId)
   };
 
   if (olderThanDays && olderThanDays > 0) {

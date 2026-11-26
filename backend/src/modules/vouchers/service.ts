@@ -30,21 +30,20 @@ function generateRandomCode(length: number): string {
 /**
  * Bulk generates unique vouchers for a given internet plan and optional router.
  */
-export async function generateVouchers(data: GenerateVouchersInput) {
-  // 1. Verify plan exists
-  const plan = await prisma.plan.findUnique({
-    where: { id: data.planId }
+export async function generateVouchers(data: GenerateVouchersInput, tenantId?: string) {
+  // 1. Verify plan exists (tenant-scoped)
+  const plan = await prisma.plan.findFirst({
+    where: tenantId ? { id: data.planId, tenantId } : { id: data.planId }
   });
 
   if (!plan) {
     throw new AppError('Internet plan not found. Vouchers cannot be generated.', 422);
   }
 
-  // Verify router if provided
+  // Verify router if provided (tenant-scoped)
   if (data.routerId) {
-    const routerExists = await prisma.router.findFirst({
-      where: { id: data.routerId, deletedAt: null }
-    });
+    const whereClause = tenantId ? { id: data.routerId, tenantId, deletedAt: null } : { id: data.routerId, deletedAt: null };
+    const routerExists = await prisma.router.findFirst({ where: whereClause });
     if (!routerExists) {
       throw new AppError('Specified router does not exist or has been deleted.', 422);
     }
@@ -82,7 +81,8 @@ export async function generateVouchers(data: GenerateVouchersInput) {
     code,
     planId: data.planId,
     routerId: data.routerId || null,
-    status: 'UNUSED' as const
+    status: 'UNUSED' as const,
+    ...(tenantId ? { tenantId } : {})
   }));
 
   // 4. Batch create
@@ -115,10 +115,11 @@ interface VoucherQueryFilters {
   search?: string;
   page?: number;
   limit?: number;
+  tenantId?: string;
 }
 
 /**
- * Retrieves a filtered, paginated list of vouchers.
+ * Retrieves a filtered, paginated list of vouchers (tenant-scoped when tenantId provided).
  */
 export async function getVouchersList(filters: VoucherQueryFilters) {
   const page = Number(filters.page) || 1;
@@ -137,6 +138,10 @@ export async function getVouchersList(filters: VoucherQueryFilters) {
 
   if (filters.routerId && filters.routerId !== 'All') {
     whereClause.routerId = filters.routerId;
+  }
+
+  if ((filters as any).tenantId) {
+    whereClause.tenantId = (filters as any).tenantId;
   }
 
   if (filters.search) {
@@ -184,11 +189,11 @@ export async function getVouchersList(filters: VoucherQueryFilters) {
 }
 
 /**
- * Updates a voucher's status to DISABLED.
+ * Updates a voucher's status to DISABLED (tenant-scoped).
  */
-export async function disableVoucher(id: string) {
-  const voucher = await prisma.voucher.findUnique({
-    where: { id }
+export async function disableVoucher(id: string, tenantId?: string) {
+  const voucher = await prisma.voucher.findFirst({
+    where: tenantId ? { id, tenantId } : { id }
   });
 
   if (!voucher) {
@@ -217,12 +222,11 @@ export async function disableVoucher(id: string) {
 }
 
 /**
- * Deletes a voucher (active, unused, or expired).
- * Clears related hotspot sessions and router accounts if active.
+ * Deletes a voucher (active, unused, or expired). Tenant-scoped.
  */
-export async function deleteVoucher(id: string) {
-  const voucher = await prisma.voucher.findUnique({
-    where: { id }
+export async function deleteVoucher(id: string, tenantId?: string) {
+  const voucher = await prisma.voucher.findFirst({
+    where: tenantId ? { id, tenantId } : { id }
   });
 
   if (!voucher) {
@@ -251,13 +255,13 @@ export async function deleteVoucher(id: string) {
 }
 
 /**
- * Deletes all vouchers in the database.
+ * Deletes all vouchers in the database (tenant-scoped).
  * Clears all hotspot sessions and router accounts.
  */
-export async function deleteAllVouchers() {
+export async function deleteAllVouchers(tenantId?: string) {
   // 1. Fetch active vouchers to clean up RouterOS users
   const activeVouchers = await prisma.voucher.findMany({
-    where: { status: 'ACTIVE' },
+    where: tenantId ? { status: 'ACTIVE', tenantId } : { status: 'ACTIVE' },
     select: { code: true, routerId: true }
   });
 
@@ -271,11 +275,15 @@ export async function deleteAllVouchers() {
     });
   }
 
-  // 2. Delete all hotspot sessions
-  await prisma.hotspotSession.deleteMany({});
+  // 2. Delete hotspot sessions (scoped to tenant's routers if applicable)
+  if (tenantId) {
+    await prisma.hotspotSession.deleteMany({ where: { router: { tenantId } } });
+  } else {
+    await prisma.hotspotSession.deleteMany({});
+  }
 
-  // 3. Delete all vouchers
-  return prisma.voucher.deleteMany({});
+  // 3. Delete vouchers (tenant-scoped)
+  return prisma.voucher.deleteMany(tenantId ? { where: { tenantId } } : {});
 }
 
 /**
