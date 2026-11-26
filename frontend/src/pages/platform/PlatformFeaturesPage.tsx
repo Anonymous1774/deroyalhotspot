@@ -17,12 +17,12 @@ const FEATURES = [
     icon: Server,
     available: true,
     items: [
-      { label: 'Register MikroTik routers via RouterOS API',   done: true },
-      { label: 'Real-time online/offline/degraded status',     done: true },
-      { label: 'Latency monitoring and health checks',          done: true },
-      { label: 'Per-router voucher and session counters',       done: true },
-      { label: 'Router enable/disable toggle',                  done: true },
-      { label: 'SSL API connection support',                    done: true },
+      { label: 'Register MikroTik routers via RouterOS API', done: true },
+      { label: 'Real-time online/offline/degraded status', done: true },
+      { label: 'Latency monitoring and health checks', done: true },
+      { label: 'Per-router voucher and session counters', done: true },
+      { label: 'Router enable/disable toggle', done: true },
+      { label: 'SSL API connection support', done: true },
     ],
   },
   {
@@ -36,9 +36,9 @@ const FEATURES = [
     items: [
       { label: 'Create plans with custom name and description', done: true },
       { label: 'Flexible duration: minutes, hours, days, weeks', done: true },
-      { label: 'Assign bandwidth profiles per plan',             done: true },
-      { label: 'Set plan price',                                 done: true },
-      { label: 'Public API exposes active plans to the portal',  done: true },
+      { label: 'Assign bandwidth profiles per plan', done: true },
+      { label: 'Set plan price', done: true },
+      { label: 'Public API exposes active plans to the portal', done: true },
     ],
   },
   {
@@ -50,10 +50,10 @@ const FEATURES = [
     icon: Network,
     available: true,
     items: [
-      { label: 'Create named bandwidth profiles',              done: true },
-      { label: 'Set download and upload speed limits',         done: true },
-      { label: 'Map to MikroTik queue names',                  done: true },
-      { label: 'Assign profiles to internet plans',            done: true },
+      { label: 'Create named bandwidth profiles', done: true },
+      { label: 'Set download and upload speed limits', done: true },
+      { label: 'Map to MikroTik queue names', done: true },
+      { label: 'Assign profiles to internet plans', done: true },
     ],
   },
   {
@@ -65,11 +65,11 @@ const FEATURES = [
     icon: Ticket,
     available: true,
     items: [
-      { label: 'Generate individual or batch voucher codes',   done: true },
+      { label: 'Generate individual or batch voucher codes', done: true },
       { label: 'Assign vouchers to specific plans and routers', done: true },
-      { label: 'Track status: UNUSED / ACTIVE / EXPIRED',      done: true },
-      { label: 'View activation IP, MAC, and timestamp',        done: true },
-      { label: 'Public voucher activation endpoint',            done: true },
+      { label: 'Track status: UNUSED / ACTIVE / EXPIRED', done: true },
+      { label: 'View activation IP, MAC, and timestamp', done: true },
+      { label: 'Public voucher activation endpoint', done: true },
       { label: 'MikroTik login form POST redirect on activation', done: true },
     ],
   },
@@ -82,11 +82,11 @@ const FEATURES = [
     icon: Activity,
     available: true,
     items: [
-      { label: 'List all active hotspot sessions',              done: true },
-      { label: 'View username, IP, MAC, and login time',        done: true },
-      { label: 'Session status: ONLINE / OFFLINE / EXPIRED',    done: true },
-      { label: 'Data usage per session (MB in/out)',            done: true },
-      { label: 'Automatic device reauthentication on return',   done: true },
+      { label: 'List all active hotspot sessions', done: true },
+      { label: 'View username, IP, MAC, and login time', done: true },
+      { label: 'Session status: ONLINE / OFFLINE / EXPIRED', done: true },
+      { label: 'Data usage per session (MB in/out)', done: true },
+      { label: 'Automatic device reauthentication on return', done: true },
     ],
   },
   {
@@ -98,11 +98,11 @@ const FEATURES = [
     icon: BarChart3,
     available: true,
     items: [
-      { label: 'Overview stats: plans, vouchers, sessions',    done: true },
-      { label: 'Active device count and data usage summary',   done: true },
-      { label: 'Router status summary panel',                   done: true },
-      { label: 'Recent system activity feed',                   done: true },
-      { label: 'Hourly traffic trend chart',                    done: true },
+      { label: 'Overview stats: plans, vouchers, sessions', done: true },
+      { label: 'Active device count and data usage summary', done: true },
+      { label: 'Router status summary panel', done: true },
+      { label: 'Recent system activity feed', done: true },
+      { label: 'Hourly traffic trend chart', done: true },
     ],
   },
   {
@@ -114,10 +114,10 @@ const FEATURES = [
     icon: History,
     available: true,
     items: [
-      { label: 'Full admin action audit trail',                done: true },
-      { label: 'Module-level log categorisation',              done: true },
-      { label: 'Server error auto-logging',                    done: true },
-      { label: 'IP address tracking on admin actions',         done: true },
+      { label: 'Full admin action audit trail', done: true },
+      { label: 'Module-level log categorisation', done: true },
+      { label: 'Server error auto-logging', done: true },
+      { label: 'IP address tracking on admin actions', done: true },
     ],
   },
   {
@@ -129,11 +129,11 @@ const FEATURES = [
     icon: Shield,
     available: true,
     items: [
-      { label: 'JWT-based admin authentication',               done: true },
-      { label: 'Argon2id password hashing',                    done: true },
+      { label: 'JWT-based admin authentication', done: true },
+      { label: 'Argon2id password hashing', done: true },
       { label: 'Protected admin routes with token verification', done: true },
-      { label: 'API rate limiting',                             done: true },
-      { label: 'Helmet.js security headers',                    done: true },
+      { label: 'API rate limiting', done: true },
+      { label: 'Helmet.js security headers', done: true },
     ],
   },
   {
@@ -145,8 +145,8 @@ const FEATURES = [
     icon: Settings,
     available: true,
     items: [
-      { label: 'Key-value system settings store',              done: true },
-      { label: 'Configurable via admin dashboard',             done: true },
+      { label: 'Key-value system settings store', done: true },
+      { label: 'Configurable via admin dashboard', done: true },
     ],
   },
 ];
@@ -188,7 +188,7 @@ export const PlatformFeaturesPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Info size={12} className="text-wire-orange-DEFAULT" />
-            <span>Planned â€” not yet available</span>
+            <span>Planned  not yet available</span>
           </div>
         </div>
       </div>

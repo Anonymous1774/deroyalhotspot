@@ -92,7 +92,7 @@ export const PlatformPage: React.FC = () => {
               <span className="text-wire-blue-DEFAULT">DHOS</span>
             </h1>
             <p className="text-xl text-white/60 leading-relaxed">
-              De Royal Hotspot OS â€” the management platform built to operate, monitor, and scale hotspot networks. DHOS powers the De Royal Hotspot service and is designed for hotspot operators who need reliable, full-stack control.
+              De Royal Hotspot OS  the management platform built to operate, monitor, and scale hotspot networks. DHOS powers the De Royal Hotspot service and is designed for hotspot operators who need reliable, full-stack control.
             </p>
             <div className="flex flex-wrap gap-4 pt-2">
               <Link
@@ -124,13 +124,13 @@ export const PlatformPage: React.FC = () => {
                 What is DHOS?
               </div>
               <h2 className="text-4xl font-extrabold text-navy-900 leading-tight">
-                Full-Stack Hotspot Management â€” in One Platform
+                Full-Stack Hotspot Management  in One Platform
               </h2>
               <p className="text-slate-500 leading-relaxed">
                 DHOS is a web-based hotspot management system built on Node.js, React, and PostgreSQL. It integrates directly with MikroTik RouterOS via the RouterOS API to provide real-time control over hotspot access, bandwidth, and sessions.
               </p>
               <p className="text-slate-500 leading-relaxed">
-                Operators use DHOS to manage their entire hotspot operation â€” from creating plans and generating vouchers, to monitoring active users and reviewing system logs â€” all from a single, secure dashboard.
+                Operators use DHOS to manage their entire hotspot operation  from creating plans and generating vouchers, to monitoring active users and reviewing system logs  all from a single, secure dashboard.
               </p>
               <div className="space-y-2.5 pt-2">
                 {[
@@ -154,14 +154,14 @@ export const PlatformPage: React.FC = () => {
               <h3 className="text-white font-bold text-sm uppercase tracking-wider">Technology Stack</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'React 18',         tag: 'Frontend',  colour: 'border-wire-blue-DEFAULT/40 text-wire-blue-DEFAULT' },
-                  { label: 'TypeScript',        tag: 'Language',  colour: 'border-wire-green-DEFAULT/40 text-wire-green-DEFAULT' },
-                  { label: 'Node.js + Express', tag: 'Backend',   colour: 'border-wire-orange-DEFAULT/40 text-wire-orange-DEFAULT' },
-                  { label: 'PostgreSQL',         tag: 'Database',  colour: 'border-wire-brown-DEFAULT/40 text-wire-brown-DEFAULT' },
-                  { label: 'Prisma ORM',         tag: 'Data',      colour: 'border-wire-blue-DEFAULT/40 text-wire-blue-DEFAULT' },
-                  { label: 'MikroTik API',       tag: 'Network',   colour: 'border-wire-orange-DEFAULT/40 text-wire-orange-DEFAULT' },
-                  { label: 'JWT + Argon2id',     tag: 'Auth',      colour: 'border-wire-green-DEFAULT/40 text-wire-green-DEFAULT' },
-                  { label: 'Tailwind CSS',       tag: 'Styling',   colour: 'border-wire-brown-DEFAULT/40 text-wire-brown-DEFAULT' },
+                  { label: 'React 18', tag: 'Frontend', colour: 'border-wire-blue-DEFAULT/40 text-wire-blue-DEFAULT' },
+                  { label: 'TypeScript', tag: 'Language', colour: 'border-wire-green-DEFAULT/40 text-wire-green-DEFAULT' },
+                  { label: 'Node.js + Express', tag: 'Backend', colour: 'border-wire-orange-DEFAULT/40 text-wire-orange-DEFAULT' },
+                  { label: 'PostgreSQL', tag: 'Database', colour: 'border-wire-brown-DEFAULT/40 text-wire-brown-DEFAULT' },
+                  { label: 'Prisma ORM', tag: 'Data', colour: 'border-wire-blue-DEFAULT/40 text-wire-blue-DEFAULT' },
+                  { label: 'MikroTik API', tag: 'Network', colour: 'border-wire-orange-DEFAULT/40 text-wire-orange-DEFAULT' },
+                  { label: 'JWT + Argon2id', tag: 'Auth', colour: 'border-wire-green-DEFAULT/40 text-wire-green-DEFAULT' },
+                  { label: 'Tailwind CSS', tag: 'Styling', colour: 'border-wire-brown-DEFAULT/40 text-wire-brown-DEFAULT' },
                 ].map((tech) => (
                   <div key={tech.label} className={`rounded-xl border ${tech.colour} p-3 space-y-1`}>
                     <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">{tech.tag}</p>

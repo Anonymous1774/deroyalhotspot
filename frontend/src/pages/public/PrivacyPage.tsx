@@ -14,7 +14,7 @@ export const PrivacyPage: React.FC = () => {
     <>
       <SEOHead
         title="Privacy Policy | De Royal Hotspot"
-        description="Privacy policy for De Royal Hotspot â€” how we collect, use, and protect your data."
+        description="Privacy policy for De Royal Hotspot  how we collect, use, and protect your data."
         canonicalPath="/privacy"
       />
 
@@ -36,10 +36,10 @@ export const PrivacyPage: React.FC = () => {
           <Section title="2. Data We Collect">
             <p>When you use the De Royal Hotspot internet service, we may collect the following:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
-              <li><strong>Device MAC address</strong> â€” used to authenticate and reconnect your device</li>
-              <li><strong>IP address</strong> â€” assigned by the hotspot during your session</li>
-              <li><strong>Voucher code</strong> â€” to track session activation and usage</li>
-              <li><strong>Session data</strong> â€” including connection time, session duration, and data usage</li>
+              <li><strong>Device MAC address</strong>  used to authenticate and reconnect your device</li>
+              <li><strong>IP address</strong>  assigned by the hotspot during your session</li>
+              <li><strong>Voucher code</strong>  to track session activation and usage</li>
+              <li><strong>Session data</strong>  including connection time, session duration, and data usage</li>
             </ul>
             <p>We do not collect your name, email address, payment details, or browsing history unless you voluntarily provide contact information through our support channels.</p>
           </Section>

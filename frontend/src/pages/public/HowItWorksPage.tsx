@@ -44,7 +44,7 @@ const STEPS = [
     title: 'Enter Your Voucher Code',
     desc: 'Enter the voucher code you received. Codes are typically 10 characters and are printed on receipts or provided at the point of purchase.',
     details: [
-      'Type or paste the code exactly as printed â€” it is not case sensitive',
+      'Type or paste the code exactly as printed  it is not case sensitive',
       'You can tap the "Paste" button to paste from your clipboard',
       'View the available plans to understand what each voucher provides',
     ],
@@ -145,7 +145,7 @@ export const HowItWorksPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Connector arrow â€” not on last item */}
+                {/* Connector arrow  not on last item */}
                 {idx < STEPS.length - 1 && (
                   <div className="border-t border-dashed border-slate-100 py-3 px-8 text-center">
                     <span className="text-slate-200 text-xl">â†“</span>
