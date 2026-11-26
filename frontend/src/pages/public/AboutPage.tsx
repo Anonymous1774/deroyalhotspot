@@ -8,7 +8,7 @@ export const AboutPage: React.FC = () => {
     <>
       <SEOHead
         title="About Us | De Royal Hotspot"
-        description="Learn about De Royal Hotspot â€” our mission to deliver reliable, accessible internet connectivity through flexible hotspot services."
+        description="Learn about De Royal Hotspot  our mission to deliver reliable, accessible internet connectivity through flexible hotspot services."
         canonicalPath="/about"
       />
 
@@ -55,7 +55,7 @@ export const AboutPage: React.FC = () => {
               </div>
               <h3 className="text-xl font-extrabold text-navy-900">De Royal Hotspot</h3>
               <p className="text-slate-500 text-sm leading-relaxed">
-                De Royal Hotspot provides voucher-based internet access through a managed Wi-Fi hotspot network. Customers connect to the network, enter a voucher code at the portal, and get immediate internet access â€” no account or registration required.
+                De Royal Hotspot provides voucher-based internet access through a managed Wi-Fi hotspot network. Customers connect to the network, enter a voucher code at the portal, and get immediate internet access  no account or registration required.
               </p>
               <p className="text-slate-500 text-sm leading-relaxed">
                 Plans are flexible, ranging from short hourly sessions to multi-day access. The service is designed to be simple, fast, and reliable for end users.
@@ -68,7 +68,7 @@ export const AboutPage: React.FC = () => {
               </div>
               <h3 className="text-xl font-extrabold text-navy-900">DHOS Platform</h3>
               <p className="text-slate-500 text-sm leading-relaxed">
-                DHOS (De Royal Hotspot OS) is the management platform built to operate this network. It allows the team to manage routers, create internet plans, generate vouchers, monitor active sessions, and review network activity â€” all from one dashboard.
+                DHOS (De Royal Hotspot OS) is the management platform built to operate this network. It allows the team to manage routers, create internet plans, generate vouchers, monitor active sessions, and review network activity  all from one dashboard.
               </p>
               <p className="text-slate-500 text-sm leading-relaxed">
                 DHOS is built on enterprise-grade MikroTik RouterOS integration and is the backbone technology powering the De Royal Hotspot service.
@@ -81,9 +81,9 @@ export const AboutPage: React.FC = () => {
             <h3 className="text-white font-extrabold text-2xl">What We Stand For</h3>
             <div className="grid sm:grid-cols-3 gap-6">
               {[
-                { colour: 'bg-wire-orange-DEFAULT', title: 'Reliability',   desc: 'Consistent uptime and stable connections built on proven infrastructure.' },
-                { colour: 'bg-wire-green-DEFAULT',  title: 'Simplicity',    desc: 'Access should be straightforward. No barriers, no complex registration.' },
-                { colour: 'bg-wire-blue-DEFAULT',   title: 'Accessibility', desc: 'Flexible plans that suit a wide range of users and connectivity needs.' },
+                { colour: 'bg-wire-orange-DEFAULT', title: 'Reliability', desc: 'Consistent uptime and stable connections built on proven infrastructure.' },
+                { colour: 'bg-wire-green-DEFAULT', title: 'Simplicity', desc: 'Access should be straightforward. No barriers, no complex registration.' },
+                { colour: 'bg-wire-blue-DEFAULT', title: 'Accessibility', desc: 'Flexible plans that suit a wide range of users and connectivity needs.' },
               ].map((v) => (
                 <div key={v.title} className="space-y-3">
                   <span className={`w-3 h-3 rounded-full ${v.colour} block`} />

@@ -81,7 +81,7 @@ export const ForProvidersPage: React.FC = () => {
             Run Your Hotspot Business with DHOS
           </h1>
           <p className="text-white/55 text-lg max-w-2xl mx-auto">
-            If you operate a MikroTik-based hotspot network, DHOS gives you the management platform to run it professionally â€” from voucher sales to real-time monitoring.
+            If you operate a MikroTik-based hotspot network, DHOS gives you the management platform to run it professionally  from voucher sales to real-time monitoring.
           </p>
         </div>
       </section>
@@ -143,19 +143,18 @@ export const ForProvidersPage: React.FC = () => {
                 <div className="space-y-3">
                   {[
                     { label: 'MikroTik router running RouterOS v6 or v7', note: 'Required' },
-                    { label: 'RouterOS API enabled on the router',         note: 'Required' },
-                    { label: 'VPS or server for DHOS backend',             note: 'Required' },
-                    { label: 'PostgreSQL 14+ database',                    note: 'Required' },
-                    { label: 'Node.js 18+ runtime',                        note: 'Required' },
+                    { label: 'RouterOS API enabled on the router', note: 'Required' },
+                    { label: 'VPS or server for DHOS backend', note: 'Required' },
+                    { label: 'PostgreSQL 14+ database', note: 'Required' },
+                    { label: 'Node.js 18+ runtime', note: 'Required' },
                     { label: 'SSL certificate (recommended for production)', note: 'Recommended' },
                   ].map((req) => (
                     <div key={req.label} className="flex justify-between items-start gap-4 py-2 border-b border-white/5 last:border-0">
                       <span className="text-sm text-white/60">{req.label}</span>
-                      <span className={`text-[10px] font-bold uppercase flex-shrink-0 px-2 py-0.5 rounded ${
-                        req.note === 'Required'
+                      <span className={`text-[10px] font-bold uppercase flex-shrink-0 px-2 py-0.5 rounded ${req.note === 'Required'
                           ? 'bg-wire-orange-DEFAULT/15 text-wire-orange-DEFAULT'
                           : 'bg-wire-green-DEFAULT/15 text-wire-green-DEFAULT'
-                      }`}>
+                        }`}>
                         {req.note}
                       </span>
                     </div>

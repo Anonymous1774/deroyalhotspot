@@ -15,80 +15,80 @@ const formatDuration = (duration: number, unit: string): string => {
     if (duration < 60) return `${duration} min`;
     return `${Math.round(duration / 60)} hr${duration >= 120 ? 's' : ''}`;
   }
-  if (unit === 'hours')   return `${duration} hr${duration > 1 ? 's' : ''}`;
-  if (unit === 'days')    return `${duration} day${duration > 1 ? 's' : ''}`;
-  if (unit === 'weeks')   return `${duration} week${duration > 1 ? 's' : ''}`;
+  if (unit === 'hours') return `${duration} hr${duration > 1 ? 's' : ''}`;
+  if (unit === 'days') return `${duration} day${duration > 1 ? 's' : ''}`;
+  if (unit === 'weeks') return `${duration} week${duration > 1 ? 's' : ''}`;
   return `${duration} ${unit}`;
 };
 
 // Wire colour accent per plan index
 const WIRE_ACCENTS = [
   { border: 'border-wire-orange-DEFAULT', badge: 'bg-wire-orange-DEFAULT/10 text-wire-orange-DEFAULT border-wire-orange-DEFAULT/30', dot: 'bg-wire-orange-DEFAULT', icon: 'text-wire-orange-DEFAULT' },
-  { border: 'border-wire-green-DEFAULT',  badge: 'bg-wire-green-DEFAULT/10 text-wire-green-DEFAULT border-wire-green-DEFAULT/30',   dot: 'bg-wire-green-DEFAULT',  icon: 'text-wire-green-DEFAULT'  },
-  { border: 'border-wire-blue-DEFAULT',   badge: 'bg-wire-blue-DEFAULT/10 text-wire-blue-DEFAULT border-wire-blue-DEFAULT/30',      dot: 'bg-wire-blue-DEFAULT',   icon: 'text-wire-blue-DEFAULT'   },
-  { border: 'border-wire-brown-DEFAULT',  badge: 'bg-wire-brown-DEFAULT/10 text-wire-brown-DEFAULT border-wire-brown-DEFAULT/30',   dot: 'bg-wire-brown-DEFAULT',  icon: 'text-wire-brown-DEFAULT'  },
+  { border: 'border-wire-green-DEFAULT', badge: 'bg-wire-green-DEFAULT/10 text-wire-green-DEFAULT border-wire-green-DEFAULT/30', dot: 'bg-wire-green-DEFAULT', icon: 'text-wire-green-DEFAULT' },
+  { border: 'border-wire-blue-DEFAULT', badge: 'bg-wire-blue-DEFAULT/10 text-wire-blue-DEFAULT border-wire-blue-DEFAULT/30', dot: 'bg-wire-blue-DEFAULT', icon: 'text-wire-blue-DEFAULT' },
+  { border: 'border-wire-brown-DEFAULT', badge: 'bg-wire-brown-DEFAULT/10 text-wire-brown-DEFAULT border-wire-brown-DEFAULT/30', dot: 'bg-wire-brown-DEFAULT', icon: 'text-wire-brown-DEFAULT' },
 ];
 
 const FEATURES = [
   {
     icon: Zap,
     color: 'text-wire-orange-DEFAULT',
-    bg:    'bg-wire-orange-DEFAULT/10',
+    bg: 'bg-wire-orange-DEFAULT/10',
     title: 'Fast & Reliable',
-    desc:  'High-speed internet with consistent bandwidth delivered through managed MikroTik infrastructure.',
+    desc: 'High-speed internet with consistent bandwidth delivered through managed MikroTik infrastructure.',
   },
   {
     icon: Ticket,
     color: 'text-wire-green-DEFAULT',
-    bg:    'bg-wire-green-DEFAULT/10',
+    bg: 'bg-wire-green-DEFAULT/10',
     title: 'Simple Voucher Access',
-    desc:  'Purchase a voucher and activate access instantly â€” no account creation or registration required.',
+    desc: 'Purchase a voucher and activate access instantly  no account creation or registration required.',
   },
   {
     icon: Clock,
     color: 'text-wire-blue-DEFAULT',
-    bg:    'bg-wire-blue-DEFAULT/10',
+    bg: 'bg-wire-blue-DEFAULT/10',
     title: 'Flexible Packages',
-    desc:  'Choose from time-based plans to suit your needs â€” from hourly passes to multi-day access.',
+    desc: 'Choose from time-based plans to suit your needs  from hourly passes to multi-day access.',
   },
   {
     icon: Shield,
     color: 'text-wire-brown-DEFAULT',
-    bg:    'bg-wire-brown-DEFAULT/10',
+    bg: 'bg-wire-brown-DEFAULT/10',
     title: 'Secure Network',
-    desc:  'Connections are managed through enterprise-grade hotspot authentication on MikroTik RouterOS.',
+    desc: 'Connections are managed through enterprise-grade hotspot authentication on MikroTik RouterOS.',
   },
   {
     icon: Network,
     color: 'text-wire-orange-DEFAULT',
-    bg:    'bg-wire-orange-DEFAULT/10',
+    bg: 'bg-wire-orange-DEFAULT/10',
     title: 'Auto Device Login',
-    desc:  'Return visitors are automatically reconnected without re-entering voucher codes.',
+    desc: 'Return visitors are automatically reconnected without re-entering voucher codes.',
   },
   {
     icon: Headphones,
     color: 'text-wire-green-DEFAULT',
-    bg:    'bg-wire-green-DEFAULT/10',
+    bg: 'bg-wire-green-DEFAULT/10',
     title: 'Support Available',
-    desc:  'Reach us by phone or email whenever you need help with your connection.',
+    desc: 'Reach us by phone or email whenever you need help with your connection.',
   },
 ];
 
 const HOW_IT_WORKS = [
   { step: '01', title: 'Connect to Wi-Fi', desc: 'Find and connect to the De Royal Hotspot Wi-Fi network on your device.' },
-  { step: '02', title: 'Open the Portal',  desc: 'Your browser will open the connection portal automatically.' },
-  { step: '03', title: 'Choose a Plan',    desc: 'Select an internet package or enter your pre-purchased voucher code.' },
-  { step: '04', title: 'Activate Access',  desc: 'Complete the activation and your device will be authenticated instantly.' },
-  { step: '05', title: 'Start Browsing',   desc: 'You\'re connected. Browse freely until your session time elapses.' },
+  { step: '02', title: 'Open the Portal', desc: 'Your browser will open the connection portal automatically.' },
+  { step: '03', title: 'Choose a Plan', desc: 'Select an internet package or enter your pre-purchased voucher code.' },
+  { step: '04', title: 'Activate Access', desc: 'Complete the activation and your device will be authenticated instantly.' },
+  { step: '05', title: 'Start Browsing', desc: 'You\'re connected. Browse freely until your session time elapses.' },
 ];
 
 const DHOS_FEATURES = [
-  { icon: Server,     label: 'Router Management' },
-  { icon: Wifi,       label: 'Internet Plans'    },
-  { icon: Ticket,     label: 'Voucher Generation' },
-  { icon: Activity,   label: 'Live Sessions'     },
-  { icon: BarChart3,  label: 'Usage Analytics'   },
-  { icon: Globe,      label: 'Multi-Router Support' },
+  { icon: Server, label: 'Router Management' },
+  { icon: Wifi, label: 'Internet Plans' },
+  { icon: Ticket, label: 'Voucher Generation' },
+  { icon: Activity, label: 'Live Sessions' },
+  { icon: BarChart3, label: 'Usage Analytics' },
+  { icon: Globe, label: 'Multi-Router Support' },
 ];
 
 // â”€â”€ Network illustration SVG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -102,7 +102,7 @@ const NetworkIllustration: React.FC = () => (
     {/* Background circles */}
     <circle cx="250" cy="190" r="160" fill="none" stroke="rgba(59,130,246,0.08)" strokeWidth="1" />
     <circle cx="250" cy="190" r="120" fill="none" stroke="rgba(59,130,246,0.06)" strokeWidth="1" />
-    <circle cx="250" cy="190" r="80"  fill="none" stroke="rgba(59,130,246,0.1)"  strokeWidth="1" />
+    <circle cx="250" cy="190" r="80" fill="none" stroke="rgba(59,130,246,0.1)" strokeWidth="1" />
 
     {/* Router / hub */}
     <rect x="215" y="155" width="70" height="70" rx="14" fill="#172554" stroke="#3B82F6" strokeWidth="1.5" />
@@ -110,12 +110,12 @@ const NetworkIllustration: React.FC = () => (
     <text x="250" y="208" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontFamily="monospace">ROUTER</text>
 
     {/* Wire strands: orange */}
-    <path d="M250,155 Q200,100 140,80"  stroke="#F97316" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.9" />
-    <path d="M250,155 Q220,90  170,60"  stroke="#F97316" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4" />
+    <path d="M250,155 Q200,100 140,80" stroke="#F97316" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.9" />
+    <path d="M250,155 Q220,90  170,60" stroke="#F97316" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4" />
 
     {/* Wire strands: green */}
-    <path d="M250,155 Q300,100 360,80"  stroke="#22C55E" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.9" />
-    <path d="M250,155 Q280,90  330,60"  stroke="#22C55E" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4" />
+    <path d="M250,155 Q300,100 360,80" stroke="#22C55E" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.9" />
+    <path d="M250,155 Q280,90  330,60" stroke="#22C55E" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4" />
 
     {/* Wire strands: blue */}
     <path d="M250,225 Q200,280 140,300" stroke="#3B82F6" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.9" />
@@ -126,19 +126,19 @@ const NetworkIllustration: React.FC = () => (
     <path d="M250,225 Q280,290 330,320" stroke="#B45309" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4" />
 
     {/* Device nodes */}
-    {/* Orange â€” laptop */}
-    <circle cx="130" cy="76"  r="22" fill="#1E3A8A" stroke="#F97316" strokeWidth="1.5" />
+    {/* Orange  laptop */}
+    <circle cx="130" cy="76" r="22" fill="#1E3A8A" stroke="#F97316" strokeWidth="1.5" />
     <text x="130" y="82" textAnchor="middle" fontSize="18">ðŸ’»</text>
 
-    {/* Green â€” phone */}
-    <circle cx="368" cy="76"  r="22" fill="#1E3A8A" stroke="#22C55E" strokeWidth="1.5" />
+    {/* Green  phone */}
+    <circle cx="368" cy="76" r="22" fill="#1E3A8A" stroke="#22C55E" strokeWidth="1.5" />
     <text x="368" y="82" textAnchor="middle" fontSize="18">ðŸ“±</text>
 
-    {/* Blue â€” tablet */}
+    {/* Blue  tablet */}
     <circle cx="130" cy="304" r="22" fill="#1E3A8A" stroke="#3B82F6" strokeWidth="1.5" />
     <text x="130" y="310" textAnchor="middle" fontSize="18">ðŸ“²</text>
 
-    {/* Brown â€” desktop */}
+    {/* Brown  desktop */}
     <circle cx="368" cy="304" r="22" fill="#1E3A8A" stroke="#B45309" strokeWidth="1.5" />
     <text x="368" y="310" textAnchor="middle" fontSize="18">ðŸ–¥ï¸</text>
 
@@ -161,7 +161,7 @@ export const LandingPage: React.FC = () => {
           setPlans((res.data.data?.plans || []).slice(0, 4));
         }
       })
-      .catch(() => {/* silently fail â€” no fallback prices displayed */})
+      .catch(() => {/* silently fail  no fallback prices displayed */ })
       .finally(() => setPlansLoading(false));
   }, []);
 
@@ -238,8 +238,8 @@ export const LandingPage: React.FC = () => {
             <div className="flex items-center gap-6 pt-2">
               {[
                 { dot: 'bg-wire-orange-DEFAULT', label: 'Instant Activation' },
-                { dot: 'bg-wire-green-DEFAULT',  label: 'No Registration' },
-                { dot: 'bg-wire-blue-DEFAULT',   label: 'Auto-Reconnect'  },
+                { dot: 'bg-wire-green-DEFAULT', label: 'No Registration' },
+                { dot: 'bg-wire-blue-DEFAULT', label: 'Auto-Reconnect' },
               ].map((s) => (
                 <div key={s.label} className="flex items-center gap-2 text-sm text-white/50">
                   <span className={`w-2 h-2 rounded-full ${s.dot}`} />
@@ -273,7 +273,7 @@ export const LandingPage: React.FC = () => {
               Internet Plans
             </h2>
             <p className="text-lg text-slate-500 max-w-xl mx-auto">
-              Flexible packages for every need. Activate instantly with a voucher â€” no account required.
+              Flexible packages for every need. Activate instantly with a voucher  no account required.
             </p>
           </div>
 

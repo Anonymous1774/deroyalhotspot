@@ -3,7 +3,7 @@ import { Phone, Mail, MessageSquare, CheckCircle, AlertCircle } from 'lucide-rea
 import { SEOHead } from '../../components/SEOHead';
 
 export const ContactPage: React.FC = () => {
-  const [form, setForm]       = useState({ name: '', email: '', subject: '', message: '' });
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -14,7 +14,7 @@ export const ContactPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Build a mailto: link â€” no backend wired for contact form yet
+    // Build a mailto: link  no backend wired for contact form yet
     const subject = encodeURIComponent(`[De Royal Hotspot] ${form.subject || 'Enquiry'}`);
     const body = encodeURIComponent(
       `Name: ${form.name}\nEmail: ${form.email}\n\nMessage:\n${form.message}`

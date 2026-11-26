@@ -27,15 +27,15 @@ const FAQS = [
     items: [
       {
         q: 'How do I get a voucher?',
-        a: 'Vouchers are available at the point of access â€” for example, from the hotspot operator or vendor at the location where the network is deployed. Contact us if you need information on where to purchase.',
+        a: 'Vouchers are available at the point of access  for example, from the hotspot operator or vendor at the location where the network is deployed. Contact us if you need information on where to purchase.',
       },
       {
         q: 'What do I do if my voucher code doesn\'t work?',
-        a: 'First, check that you\'ve entered the code exactly as printed â€” the code is not case sensitive but must be complete. Ensure you are connected to the De Royal Hotspot Wi-Fi. If the problem persists, contact support with your voucher code.',
+        a: 'First, check that you\'ve entered the code exactly as printed  the code is not case sensitive but must be complete. Ensure you are connected to the De Royal Hotspot Wi-Fi. If the problem persists, contact support with your voucher code.',
       },
       {
         q: 'When does my voucher session start?',
-        a: 'Your session starts at the moment you successfully activate the voucher â€” not when you purchase it. Time counts down from the point of activation.',
+        a: 'Your session starts at the moment you successfully activate the voucher  not when you purchase it. Time counts down from the point of activation.',
       },
       {
         q: 'Can I pause my session and continue later?',
@@ -56,7 +56,7 @@ const FAQS = [
         a: 'When you first activate a voucher, your device MAC address is registered. On return visits, the system recognises your device and may reconnect you automatically without requiring a new voucher, as long as an active session remains.',
       },
       {
-        q: 'My device reconnected without asking â€” is this normal?',
+        q: 'My device reconnected without asking  is this normal?',
         a: 'Yes. If you have an active session remaining on your account, the system will automatically authenticate your device when it reconnects to the Wi-Fi network.',
       },
     ],
@@ -83,9 +83,9 @@ const FAQS = [
 
 const COLOUR_MAP: Record<string, string> = {
   'wire-orange': 'border-wire-orange-DEFAULT text-wire-orange-DEFAULT bg-wire-orange-DEFAULT',
-  'wire-green':  'border-wire-green-DEFAULT text-wire-green-DEFAULT bg-wire-green-DEFAULT',
-  'wire-blue':   'border-wire-blue-DEFAULT text-wire-blue-DEFAULT bg-wire-blue-DEFAULT',
-  'wire-brown':  'border-wire-brown-DEFAULT text-wire-brown-DEFAULT bg-wire-brown-DEFAULT',
+  'wire-green': 'border-wire-green-DEFAULT text-wire-green-DEFAULT bg-wire-green-DEFAULT',
+  'wire-blue': 'border-wire-blue-DEFAULT text-wire-blue-DEFAULT bg-wire-blue-DEFAULT',
+  'wire-brown': 'border-wire-brown-DEFAULT text-wire-brown-DEFAULT bg-wire-brown-DEFAULT',
 };
 
 const FAQItem: React.FC<{ q: string; a: string; colour: string; idx: number }> = ({ q, a, colour, idx }) => {
@@ -150,7 +150,7 @@ export const FAQPage: React.FC = () => {
           {FAQS.map((section) => {
             const colourClasses = COLOUR_MAP[section.colour] || '';
             const borderClass = colourClasses.split(' ')[0];
-            const textClass   = colourClasses.split(' ')[1];
+            const textClass = colourClasses.split(' ')[1];
             return (
               <div key={section.category} className="space-y-4">
                 <div className={`flex items-center gap-3 pb-3 border-b-2 ${borderClass}`}>

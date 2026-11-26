@@ -10,23 +10,23 @@ const formatDuration = (duration: number, unit: string): string => {
     if (duration < 60) return `${duration} min`;
     return `${Math.round(duration / 60)} hr${duration >= 120 ? 's' : ''}`;
   }
-  if (unit === 'hours')   return `${duration} hr${duration > 1 ? 's' : ''}`;
-  if (unit === 'days')    return `${duration} day${duration > 1 ? 's' : ''}`;
-  if (unit === 'weeks')   return `${duration} week${duration > 1 ? 's' : ''}`;
+  if (unit === 'hours') return `${duration} hr${duration > 1 ? 's' : ''}`;
+  if (unit === 'days') return `${duration} day${duration > 1 ? 's' : ''}`;
+  if (unit === 'weeks') return `${duration} week${duration > 1 ? 's' : ''}`;
   return `${duration} ${unit}`;
 };
 
 const WIRE_ACCENTS = [
   { border: 'border-wire-orange-DEFAULT', badge: 'bg-wire-orange-DEFAULT/10 text-wire-orange-DEFAULT border-wire-orange-DEFAULT/30', bar: 'bg-wire-orange-DEFAULT', label: 'Orange Tier' },
-  { border: 'border-wire-green-DEFAULT',  badge: 'bg-wire-green-DEFAULT/10 text-wire-green-DEFAULT border-wire-green-DEFAULT/30',   bar: 'bg-wire-green-DEFAULT',  label: 'Green Tier'  },
-  { border: 'border-wire-blue-DEFAULT',   badge: 'bg-wire-blue-DEFAULT/10 text-wire-blue-DEFAULT border-wire-blue-DEFAULT/30',      bar: 'bg-wire-blue-DEFAULT',   label: 'Blue Tier'   },
-  { border: 'border-wire-brown-DEFAULT',  badge: 'bg-wire-brown-DEFAULT/10 text-wire-brown-DEFAULT border-wire-brown-DEFAULT/30',   bar: 'bg-wire-brown-DEFAULT',  label: 'Brown Tier'  },
+  { border: 'border-wire-green-DEFAULT', badge: 'bg-wire-green-DEFAULT/10 text-wire-green-DEFAULT border-wire-green-DEFAULT/30', bar: 'bg-wire-green-DEFAULT', label: 'Green Tier' },
+  { border: 'border-wire-blue-DEFAULT', badge: 'bg-wire-blue-DEFAULT/10 text-wire-blue-DEFAULT border-wire-blue-DEFAULT/30', bar: 'bg-wire-blue-DEFAULT', label: 'Blue Tier' },
+  { border: 'border-wire-brown-DEFAULT', badge: 'bg-wire-brown-DEFAULT/10 text-wire-brown-DEFAULT border-wire-brown-DEFAULT/30', bar: 'bg-wire-brown-DEFAULT', label: 'Brown Tier' },
 ];
 
 export const PricingPage: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     api.get('/plans')
@@ -62,7 +62,7 @@ export const PricingPage: React.FC = () => {
             Internet Plans & Pricing
           </h1>
           <p className="text-white/55 text-lg max-w-xl mx-auto">
-            All plans are activated with a voucher code â€” no account or registration required.
+            All plans are activated with a voucher code  no account or registration required.
           </p>
         </div>
       </section>
@@ -151,7 +151,7 @@ export const PricingPage: React.FC = () => {
 
                         <div className="flex items-start gap-2 text-xs text-slate-400">
                           <CheckCircle size={12} className="text-wire-green-DEFAULT flex-shrink-0 mt-0.5" />
-                          Voucher activation â€” no registration required
+                          Voucher activation  no registration required
                         </div>
 
                         <div className="mt-auto pt-2">
