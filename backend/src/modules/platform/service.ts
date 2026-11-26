@@ -15,28 +15,35 @@ export async function getPlatformStats() {
     totalTenants,
     activeTenants,
     suspendedTenants,
-    trialSubscriptions,
-    activeSubscriptions,
+    trialTenants,
+    totalRouters,
+    totalVouchers,
     totalUsers,
   ] = await Promise.all([
     prisma.tenant.count(),
     prisma.tenant.count({ where: { status: 'ACTIVE' } }),
     prisma.tenant.count({ where: { status: 'SUSPENDED' } }),
     prisma.tenantSubscription.count({ where: { status: 'TRIAL' } }),
-    prisma.tenantSubscription.count({ where: { status: 'ACTIVE' } }),
+    prisma.router.count(),
+    prisma.voucher.count(),
     prisma.user.count(),
   ]);
 
-  return { totalTenants, activeTenants, suspendedTenants, trialSubscriptions, activeSubscriptions, totalUsers };
+  return { totalTenants, activeTenants, suspendedTenants, trialTenants, totalRouters, totalVouchers, totalUsers };
 }
 
 // ─── Tenant management ────────────────────────────────────────
 
-export async function listTenants(page = 1, limit = 20, search?: string) {
+export async function listTenants(page = 1, limit = 20, search?: string, status?: string) {
   const skip = (page - 1) * limit;
-  const where = search
-    ? { OR: [{ name: { contains: search, mode: 'insensitive' as const } }, { email: { contains: search, mode: 'insensitive' as const } }] }
-    : {};
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' as const } },
+      { email: { contains: search, mode: 'insensitive' as const } },
+    ];
+  }
+  if (status && status !== 'All') where.status = status;
 
   const [tenants, total] = await Promise.all([
     prisma.tenant.findMany({
@@ -52,7 +59,23 @@ export async function listTenants(page = 1, limit = 20, search?: string) {
     prisma.tenant.count({ where }),
   ]);
 
-  return { tenants, total, page, limit, totalPages: Math.ceil(total / limit) };
+  // Normalise field names to match frontend expectations
+  const normalised = tenants.map((t: any) => ({
+    id: t.id,
+    businessName: t.name,
+    businessEmail: t.email,
+    status: t.status,
+    createdAt: t.createdAt.toISOString(),
+    isFirstTenant: t.isFirstTenant,
+    subscription: t.subscription ? {
+      status: t.subscription.status,
+      plan: t.subscription.plan,
+      trialEndsAt: t.subscription.trialEndsAt?.toISOString() ?? null,
+    } : undefined,
+    _count: t._count,
+  }));
+
+  return { tenants: normalised, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 export async function getTenantById(id: string) {
@@ -114,12 +137,43 @@ export async function listSubscriptionPlans() {
 }
 
 export async function createSubscriptionPlan(data: {
-  name: string; description?: string; price: number; billingInterval: string;
-  routerLimit: number; staffLimit: number; trialDays: number; features: string[];
+  name: string; description?: string; price: number; billingInterval?: string; billingCycle?: string;
+  routerLimit: number; staffLimit: number; trialDays: number; features?: string[];
 }) {
+  const billingInterval = data.billingInterval || (data.billingCycle?.toLowerCase() ?? 'monthly');
   return prisma.subscriptionPlan.create({
-    data: { ...data, features: JSON.stringify(data.features), isActive: true },
+    data: {
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      billingInterval,
+      routerLimit: data.routerLimit,
+      staffLimit: data.staffLimit,
+      trialDays: data.trialDays,
+      features: JSON.stringify(data.features || []),
+      isActive: true,
+    },
   });
+}
+
+export async function updateSubscriptionPlan(id: string, data: {
+  name?: string; description?: string; price?: number; billingInterval?: string; billingCycle?: string;
+  routerLimit?: number; staffLimit?: number; trialDays?: number; features?: string[]; isActive?: boolean;
+}) {
+  const update: any = { ...data };
+  if (data.billingCycle && !data.billingInterval) update.billingInterval = data.billingCycle.toLowerCase();
+  delete update.billingCycle;
+  if (data.features) update.features = JSON.stringify(data.features);
+  return prisma.subscriptionPlan.update({ where: { id }, data: update });
+}
+
+export async function deleteSubscriptionPlan(id: string) {
+  // Check no tenants are using this plan
+  const inUse = await prisma.tenantSubscription.count({ where: { planId: id } });
+  if (inUse > 0) {
+    throw new AppError(`Cannot delete — ${inUse} tenant(s) are subscribed to this plan.`, 409);
+  }
+  return prisma.subscriptionPlan.delete({ where: { id } });
 }
 
 export async function activateTenantSubscription(tenantId: string, planId: string, adminId: string, adminEmail: string) {
@@ -155,16 +209,19 @@ export async function activateTenantSubscription(tenantId: string, planId: strin
 
 // ─── Audit logs ───────────────────────────────────────────────
 
-export async function getPlatformAuditLogs(page = 1, limit = 50) {
+export async function getPlatformAuditLogs(page = 1, limit = 50, module?: string) {
   const skip = (page - 1) * limit;
+  const where = module ? { module } : {};
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: { tenant: { select: { name: true, slug: true } } },
     }),
-    prisma.auditLog.count(),
+    prisma.auditLog.count({ where }),
   ]);
+  // Flatten for frontend — return array directly with pagination meta
   return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 }

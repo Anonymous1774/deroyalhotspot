@@ -10,7 +10,7 @@ interface PlatformStats {
   suspendedTenants: number;
   totalRouters: number;
   totalVouchers: number;
-  totalSessions: number;
+  totalUsers: number;
 }
 
 export function PlatformDashboardPage() {
@@ -27,12 +27,12 @@ export function PlatformDashboardPage() {
   }, []);
 
   const statCards = stats ? [
-    { label: 'Total ISPs', value: stats.totalTenants, icon: Building2, color: 'wire-orange' },
-    { label: 'Active ISPs', value: stats.activeTenants, icon: Activity, color: 'wire-green' },
-    { label: 'On Trial', value: stats.trialTenants, icon: TrendingUp, color: 'wire-blue' },
-    { label: 'Suspended', value: stats.suspendedTenants, icon: AlertCircle, color: 'wire-brown' },
-    { label: 'Total Routers', value: stats.totalRouters, icon: Server, color: 'wire-orange' },
-    { label: 'Total Users', value: stats.totalVouchers, icon: Users, color: 'wire-green' },
+    { label: 'Total ISPs',    value: stats.totalTenants,    icon: Building2,    color: 'wire-orange' },
+    { label: 'Active ISPs',   value: stats.activeTenants,   icon: Activity,     color: 'wire-green' },
+    { label: 'On Trial',      value: stats.trialTenants,    icon: TrendingUp,   color: 'wire-blue' },
+    { label: 'Suspended',     value: stats.suspendedTenants, icon: AlertCircle, color: 'wire-brown' },
+    { label: 'Total Routers', value: stats.totalRouters,    icon: Server,       color: 'wire-orange' },
+    { label: 'Total Users',   value: stats.totalUsers,      icon: Users,        color: 'wire-green' },
   ] : [];
 
   return (
